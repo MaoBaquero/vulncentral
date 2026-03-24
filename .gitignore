@@ -11,3 +11,7 @@ dist/
 *.egg-info/
 .DS_Store
 Thumbs.db
+
+# Cursor / editor local
+.cursor/
+.cursorrules
