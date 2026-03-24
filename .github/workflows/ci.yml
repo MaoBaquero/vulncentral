@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  compose-validate:
+    name: Validar Docker Compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validar sintaxis (dev)
+        run: docker compose --env-file .env.example config
+
+      - name: Validar sintaxis (dev + prod)
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.example config
+
+  api-gateway-tests:
+    name: Tests API Gateway
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/api-gateway
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Pytest
+        run: pytest -q
+
+  frontend-build:
+    name: Build frontend (Vite)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: services/frontend/package-lock.json
+
+      - name: npm ci
+        run: npm ci
+
+      - name: Build
+        env:
+          VITE_API_BASE_URL: http://localhost:8000
+        run: npm run build

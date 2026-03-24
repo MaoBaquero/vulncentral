@@ -1,0 +1,29 @@
+# Requiere un Ingress Controller (p. ej. ingress-nginx) e ingressClassName "nginx".
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vulncentral
+  namespace: vulncentral
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.vulncentral.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8000
+    - host: app.vulncentral.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
