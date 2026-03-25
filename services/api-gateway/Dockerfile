@@ -15,6 +15,8 @@ RUN mkdir -p /app/data/reports && chown -R appuser:appgroup /app/data
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
+COPY alembic.ini .
+COPY alembic ./alembic
 COPY app ./app
 
 USER appuser
