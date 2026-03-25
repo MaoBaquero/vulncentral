@@ -31,6 +31,7 @@ Plataforma base (Fase 1): estructura de repositorio, Docker Compose, servicios m
    - Frontend: [http://localhost:80](http://localhost:80) (o el puerto mapeado si cambias el compose)
    - API: [http://localhost:8000/health](http://localhost:8000/health) (puerto por defecto `API_GATEWAY_PORT`)
    - RabbitMQ Management: [http://localhost:15672](http://localhost:15672) (usuario/clave según `.env`)
+   - pgAdmin: [http://localhost:5050](http://localhost:5050) (puerto `PGADMIN_PORT`; email/clave `PGADMIN_DEFAULT_*` en `.env`). Al registrar el servidor usa host **`postgres`**, puerto **5432**, usuario y contraseña de PostgreSQL del `.env`.
 
 ## Producción (override)
 
@@ -40,7 +41,7 @@ Reduce exposición de puertos y ajusta límites:
 docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env up -d --build
 ```
 
-En el override, el frontend suele publicarse en el host en el puerto **8080** (`8080:80`). PostgreSQL y RabbitMQ dejan de exponer puertos al host; usa red interna o túnel según tu despliegue.
+En el override, el frontend suele publicarse en el host en el puerto **8080** (`8080:80`). PostgreSQL y RabbitMQ dejan de exponer puertos al host; usa red interna o túnel según tu despliegue. **pgAdmin** queda asignado al perfil `dev-tools` y no arranca salvo que ejecutes `docker compose ... --profile dev-tools up`.
 
 ## Volúmenes
 

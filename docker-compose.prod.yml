@@ -1,5 +1,10 @@
 # Uso: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 services:
+  # No arrancar pgAdmin en producción salvo que se pase explícitamente --profile dev-tools
+  pgadmin:
+    profiles:
+      - dev-tools
+
   postgres:
     restart: always
     deploy:

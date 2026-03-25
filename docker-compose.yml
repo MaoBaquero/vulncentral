@@ -24,6 +24,35 @@ services:
         limits:
           memory: 512M
 
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: vulncentral-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - vulncentral_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/misc/ping >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: vulncentral-rabbitmq
@@ -155,5 +184,6 @@ networks:
 
 volumes:
   postgres_data:
+  pgadmin_data:
   rabbitmq_data:
   reports_data:
