@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, Identity, String
+from sqlalchemy import BigInteger, ForeignKey, Identity, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.db.base import Base
@@ -14,6 +14,7 @@ from app.models.mixins import SoftDeleteMixin, TimestampMixin
 if TYPE_CHECKING:
     from app.models.audit_log import AuditLog
     from app.models.project import Project
+    from app.models.role import Role
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -25,7 +26,18 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     password: Mapped[str] = mapped_column(String(255), nullable=False)
+    role_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("roles.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
 
+    role: Mapped[Role | None] = relationship(
+        "Role",
+        back_populates="users",
+        foreign_keys=[role_id],
+    )
     projects: Mapped[list[Project]] = relationship(
         "Project",
         back_populates="owner",

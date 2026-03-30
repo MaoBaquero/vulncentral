@@ -1,4 +1,4 @@
-"""Aplicación FastAPI mínima — sin lógica de negocio (Fase 1)."""
+"""API Gateway VulnCentral — salud del sistema, autenticación JWT y RBAC (Fase 3)."""
 
 from __future__ import annotations
 
@@ -6,10 +6,14 @@ import logging
 import os
 import sys
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
+from app.api.auth import router as auth_router
+from app.api.gestores import router as gestores_router
+from app.middleware.jwt_auth import JWTAuthMiddleware
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -41,6 +45,24 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    application.add_middleware(JWTAuthMiddleware)
+
+    @application.exception_handler(HTTPException)
+    async def http_exception_handler(
+        request: Request,
+        exc: HTTPException,
+    ) -> JSONResponse:
+        if isinstance(exc.detail, dict) and "error" in exc.detail:
+            return JSONResponse(status_code=exc.status_code, content=exc.detail)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": {
+                    "code": "http_error",
+                    "message": str(exc.detail) if exc.detail else "",
+                }
+            },
+        )
 
     @application.exception_handler(RequestValidationError)
     async def validation_exception_handler(
@@ -81,6 +103,9 @@ def create_app() -> FastAPI:
     @application.get("/", tags=["system"])
     async def root() -> dict[str, str]:
         return {"service": "vulncentral-api-gateway"}
+
+    application.include_router(auth_router)
+    application.include_router(gestores_router)
 
     return application
 

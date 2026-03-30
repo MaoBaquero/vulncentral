@@ -12,6 +12,7 @@ from app.models.mixins import SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.permission import Permission
+    from app.models.user import User
 
 
 class Role(Base, TimestampMixin, SoftDeleteMixin):
@@ -24,6 +25,11 @@ class Role(Base, TimestampMixin, SoftDeleteMixin):
         "Permission",
         back_populates="role",
         foreign_keys="Permission.role_id",
+    )
+    users: Mapped[list["User"]] = relationship(
+        "User",
+        back_populates="role",
+        foreign_keys="User.role_id",
     )
 
     @validates("name")
