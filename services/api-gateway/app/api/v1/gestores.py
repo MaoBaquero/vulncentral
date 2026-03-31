@@ -16,7 +16,7 @@ from app.rbac import (
     require_permission,
 )
 
-router = APIRouter(prefix="/api/gestores", tags=["rbac"])
+router = APIRouter(prefix="/gestores", tags=["rbac"])
 
 
 @router.get("/usuarios")

@@ -10,6 +10,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from app.errors_format import error_payload
+from app.middleware.body_size_limit import _max_trivy_body_bytes, is_post_trivy_report
 from app.security.jwt_tokens import decode_access_token
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,24 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         path = request.url.path
+        if is_post_trivy_report(request.method, path):
+            cl = request.headers.get("content-length")
+            if cl is not None:
+                try:
+                    n = int(cl)
+                except ValueError:
+                    pass
+                else:
+                    limit = _max_trivy_body_bytes()
+                    if n > limit:
+                        return JSONResponse(
+                            status_code=413,
+                            content=error_payload(
+                                "payload_too_large",
+                                f"El cuerpo supera el máximo permitido ({limit} bytes).",
+                            ),
+                        )
+
         if not _path_requires_jwt(request.method, path):
             return await call_next(request)
 

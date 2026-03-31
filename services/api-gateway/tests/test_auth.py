@@ -85,7 +85,7 @@ def test_me_ok(client: TestClient) -> None:
 def test_gestor_usuarios_admin_has_read(client: TestClient) -> None:
     token = _login(client)
     r = client.get(
-        "/api/gestores/usuarios",
+        "/api/v1/gestores/usuarios",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert r.status_code == 200
@@ -139,7 +139,7 @@ def test_gestor_usuarios_forbidden_for_master(client, engine) -> None:
         assert tr.status_code == 200
         token = tr.json()["access_token"]
         r = tc.get(
-            "/api/gestores/usuarios",
+            "/api/v1/gestores/usuarios",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert r.status_code == 403

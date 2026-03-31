@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Identity, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
-from app.db.base import Base
+from app.db.base import Base, BigIntPk
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
-    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    id: Mapped[int] = mapped_column(BigIntPk, Identity(), primary_key=True)
     user_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("users.id", ondelete="RESTRICT"),

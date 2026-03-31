@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, Identity, String
+from sqlalchemy import Identity, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
-from app.db.base import Base
+from app.db.base import Base, BigIntPk
 from app.models.mixins import SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class UseCase(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "use_cases"
 
-    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    id: Mapped[int] = mapped_column(BigIntPk, Identity(), primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
     permissions: Mapped[list[Permission]] = relationship(

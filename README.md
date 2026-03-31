@@ -4,34 +4,30 @@
 
 ## Requisitos
 
-| Herramienta | Comprobación |
-|-------------|--------------|
-| Docker Engine + Compose v2 | `docker --version`, `docker compose version` |
-| Python 3.12 (tests locales del API) | `python --version` |
-| Node.js 20 (build local del frontend) | `node --version` |
+
+| Herramienta                           | Comprobación                                 |
+| ------------------------------------- | -------------------------------------------- |
+| Docker Engine + Compose v2            | `docker --version`, `docker compose version` |
+| Python 3.12 (tests locales del API)   | `python --version`                           |
+| Node.js 20 (build local del frontend) | `node --version`                             |
+
 
 ## Inicio rápido
 
 1. Copiar variables de entorno:
-
-   ```bash
+  ```bash
    cp .env.example .env
-   ```
-
+  ```
    Edita `.env` y cambia contraseñas y secretos.
-
 2. Levantar el stack en desarrollo:
-
-   ```bash
+  ```bash
    docker compose up --build
-   ```
-
+  ```
 3. Comprobar servicios:
-
-   - Frontend: [http://localhost:80](http://localhost:80) (o el puerto mapeado si cambias el compose)
-   - API: [http://localhost:8000/health](http://localhost:8000/health) (puerto por defecto `API_GATEWAY_PORT`)
-   - RabbitMQ Management: [http://localhost:15672](http://localhost:15672) (usuario/clave según `.env`)
-   - pgAdmin: [http://localhost:5050](http://localhost:5050) (puerto `PGADMIN_PORT`; email/clave `PGADMIN_DEFAULT_*` en `.env`). Al registrar el servidor usa host **`postgres`**, puerto **5432**, usuario y contraseña de PostgreSQL del `.env`.
+  - Frontend: [http://localhost:80](http://localhost:80) (o el puerto mapeado si cambias el compose)
+  - API: [http://localhost:8000/health](http://localhost:8000/health) (puerto por defecto `API_GATEWAY_PORT`)
+  - RabbitMQ Management: [http://localhost:15672](http://localhost:15672) (usuario/clave según `.env`)
+  - pgAdmin: [http://localhost:5050](http://localhost:5050) (puerto `PGADMIN_PORT`; email/clave `PGADMIN_DEFAULT_*` en `.env`). Al registrar el servidor usa host `**postgres**`, puerto **5432**, usuario y contraseña de PostgreSQL del `.env`.
 
 ## Producción (override)
 
@@ -45,7 +41,7 @@ En el override, el frontend suele publicarse en el host en el puerto **8080** (`
 
 ## Volúmenes
 
-- **Informes compartidos**: volumen Docker `reports_data` montado en **`/app/data/reports`** en `api-gateway` y `worker`.
+- **Informes compartidos**: volumen Docker `reports_data` montado en `**/app/data/reports`** en `api-gateway` y `worker`.
 - **Datos de PostgreSQL y RabbitMQ**: volúmenes nombrados `postgres_data` y `rabbitmq_data`.
 
 ## Límites de memoria (`deploy.resources.limits.memory`)
@@ -69,12 +65,16 @@ vulncentral/
 
 ## Celery
 
+<span style="color:blue">
+  **Celery es una de las herramientas más potentes y utilizadas en el ecosistema de Python para manejar colas de tareas asíncronas y programación de trabajos en tiempo real.**
+</span>.
+
 - **Broker**: RabbitMQ (`CELERY_BROKER_URL`).
 - **Resultados (desarrollo)**: `CELERY_RESULT_BACKEND=rpc://` (mismo broker). Para producción avanzada se puede migrar a Redis o base de datos en fases posteriores.
 
 ## Kubernetes (esqueleto)
 
-Manifiestos de ejemplo en [`orchestration/k8s/`](orchestration/k8s/). Ajusta [`secrets.yaml`](orchestration/k8s/secrets.yaml) y construye las imágenes `vulncentral/api-gateway`, `vulncentral/worker` y `vulncentral/frontend` antes de aplicar.
+Manifiestos de ejemplo en `[orchestration/k8s/](orchestration/k8s/)`. Ajusta `[secrets.yaml](orchestration/k8s/secrets.yaml)` y construye las imágenes `vulncentral/api-gateway`, `vulncentral/worker` y `vulncentral/frontend` antes de aplicar.
 
 Hosts de ejemplo en Ingress: `api.vulncentral.local`, `app.vulncentral.local`.
 
@@ -98,39 +98,45 @@ npm run build
 docker compose --env-file .env.example config
 docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.example config
 ```
+
 ---
 
 # 🗄️ Plataforma base (Fase 2): Base de datos, modelos y Alembic
 
 ---
+
 name: Fase 2 BD y Alembic
 overview: Añadir SQLAlchemy 2.x, modelos según el diccionario de datos, hashing de contraseñas, Alembic en `services/api-gateway` y una migración inicial que cree todas las tablas con FKs y soft delete donde corresponde.
 todos:
-  - id: deps-db
-    content: Añadir sqlalchemy, psycopg, alembic, passlib[bcrypt] a requirements.txt y fijar versiones razonables
-    status: completed
-  - id: core-db
-    content: Crear app/db (Base, session, get_database_url) y app/security/password.py
-    status: completed
-  - id: models
-    content: Implementar modelos SQLAlchemy 2.x + relaciones FK + soft delete + validates
-    status: completed
-  - id: alembic
-    content: Inicializar Alembic (ini + env.py) apuntando a Base.metadata
-    status: completed
-  - id: migration
-    content: Generar revisión inicial con todas las tablas, FKs, índices y unique email
-    status: completed
-  - id: docker-env
-    content: Actualizar Dockerfile (copiar alembic), .env.example (POSTGRES_HOST / DATABASE_URL)
-    status: completed
-  - id: tests
-    content: Ajustar/añadir test mínimo compatible con CI
-    status: completed
+
+- id: deps-db
+content: Añadir sqlalchemy, psycopg, alembic, passlib[bcrypt] a requirements.txt y fijar versiones razonables
+status: completed
+- id: core-db
+content: Crear app/db (Base, session, get_database_url) y app/security/password.py
+status: completed
+- id: models
+content: Implementar modelos SQLAlchemy 2.x + relaciones FK + soft delete + validates
+status: completed
+- id: alembic
+content: Inicializar Alembic (ini + env.py) apuntando a Base.metadata
+status: completed
+- id: migration
+content: Generar revisión inicial con todas las tablas, FKs, índices y unique email
+status: completed
+- id: docker-env
+content: Actualizar Dockerfile (copiar alembic), .env.example (POSTGRES_HOST / DATABASE_URL)
+status: completed
+- id: tests
+content: Ajustar/añadir test mínimo compatible con CI
+status: completed
 isProject: false
+
 ---
 
 ## Contexto
+
+**FastAPI es un framework web moderno, de alto rendimiento, para construir APIs con Python basado en las anotaciones de tipo estándar de Python (Python type hints)**
 
 - La app vive en `[services/api-gateway](services/api-gateway)`: FastAPI sin ORM hoy (`[app/main.py](services/api-gateway/app/main.py)`).
 - Postgres 16 ya está definido en `[docker-compose.yml](docker-compose.yml)`; el gateway recibe `POSTGRES_*` pero no hay `DATABASE_URL` ni modelos.
@@ -203,32 +209,18 @@ Actualizar `[services/api-gateway/requirements.txt](services/api-gateway/require
 
 Desde `services/api-gateway` con Postgres accesible: `alembic upgrade head`.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ---
 
 # Fase 3 — Autenticación JWT y RBAC (api-gateway)
+
+
+**JWT y OAuth 2.0 suelen trabajar juntos, pero la diferencia principal es que JWT es un formato de datos (un token), mientras que OAuth 2.0 es un protocolo (un marco de trabajo), para entenderlo de forma sencilla: OAuth 2.0 es el proceso que sigues para obtener una llave, y JWT es el material y el diseño de la llave misma.**
 
 Pasos realizados en esta fase:
 
 - Migración Alembic `8a2b3c4d5002`: columna `users.role_id` (FK a `roles`, nullable hasta poblar datos).
 - Login con OAuth2 password (`username` = email), emisión de JWT HS256, cabecera `Authorization: Bearer` en rutas protegidas.
-- Middleware que exige JWT válido y no expirado para `/api/*` y `GET /auth/me`; rutas públicas incluyen `/health`, `/`, documentación OpenAPI y `POST /auth/login`.
+- Middleware que exige JWT válido y no expirado para `/api/`* y `GET /auth/me`; rutas públicas incluyen `/health`, `/`, documentación OpenAPI y `POST /auth/login`.
 - RBAC con `Depends`: permisos por caso de uso (`Gestor usuarios`, `Gestor proyectos`, etc.) y acciones c/r/u/d según tabla `permissions`.
 - Script de seed en Python (orden: `use_cases` → `roles` → `permissions` → usuario inicial).
 
@@ -237,6 +229,7 @@ Pasos realizados en esta fase:
 En `.env` / `.env.example`: `JWT_SECRET` (obligatorio para login), `JWT_ALGORITHM` (por defecto `HS256`), `JWT_EXPIRE_MINUTES` (opcional; por defecto 30 en código si no se define).
 
 # Comandos que debe ejecutar el usuario (PostgreSQL + API)
+
 ***Para actualizar a FASE 3***
 Desde la raíz del repo o con BD accesible según tu `.env`:
 
@@ -254,7 +247,7 @@ Con Docker Compose, entra al contenedor del api-gateway o ejecuta los mismos com
 
 - `POST /auth/login` — cuerpo formulario: `username` (email), `password`.
 - `GET /auth/me` — requiere Bearer token.
-- `GET /api/gestores/usuarios` (y análogos `/proyectos`, `/escaneos`, `/vulnerabilidades`, `/logs`) — ejemplo de lectura con permiso `r` sobre cada caso de uso.
+- `GET /api/v1/gestores/usuarios` (y análogos `/proyectos`, `/escaneos`, `/vulnerabilidades`, `/logs`) — ejemplo de lectura con permiso `r` sobre cada caso de uso.
 
 ### Ejemplo con curl (login)
 
@@ -278,6 +271,56 @@ curl -s "http://localhost:8000/auth/me" -H "Authorization: Bearer $TOKEN"
 - Rol: Administrator
 
 **Importante:** cambia esta contraseña y rota `JWT_SECRET` en cualquier entorno expuesto o de producción.
+
+---
+
+# Fase 4 — API Gateway: CRUD `/api/v1`, validaciones Pydantic, Trivy y límites
+
+**Pydantic es la librería de validación de datos y gestión de configuraciones más popular para Python moderno. Su función principal es asegurar que los datos con los que trabaja tu programa tengan el formato y el tipo correctos, si FastAPI es el motor de tu API, Pydantic es el filtro de seguridad que revisa cada dato que entra y sale**
+
+
+Pasos realizados:
+
+- API versionada bajo `**/api/v1`**: CRUD de **users**, **projects**, **scans** y **vulnerabilities** con soft delete (`deleted_at`), respuestas de error JSON coherentes con el resto de la app.
+- **Enums** `Severity` y `VulnerabilityStatus` (`str` + `Enum`) para severidad y estado de vulnerabilidad, serializables en JSON.
+- **RBAC** por caso de uso (`Gestor usuarios`, `Gestor proyectos`, etc.) con acciones `c` / `r` / `u` / `d` según la matriz del seed (p. ej. el rol Administrator **no** tiene permiso `c` sobre escaneos; para crear escaneos o proyectos suele hacer falta un rol con ese permiso, como Master).
+- **Ingesta Trivy**: `POST /api/v1/scans/{scan_id}/trivy-report` con cuerpo JSON alineado al informe estándar de Trivy (`SchemaVersion`, `Results[]`, `Vulnerabilities[]`, etc.); crea filas en `vulnerabilities` (estado inicial `OPEN`). Requiere permiso `**u`** sobre «Gestor escaneos» (coherente con el seed para Administrator).
+- **Seguridad**: saneado de texto (incl. `html.escape` en descripciones y campos sensibles a XSS) antes de persistir; límite de tamaño del cuerpo para la ruta Trivy vía `**MAX_JSON_BODY_BYTES`** (por defecto 10 MiB si no se define). La comprobación usa la cabecera `**Content-Length**` cuando está presente.
+- Rutas de ejemplo RBAC movidas a `**/api/v1/gestores/...**`.
+
+### Variable de entorno adicional
+
+- `**MAX_JSON_BODY_BYTES**`: tamaño máximo en bytes del cuerpo para `POST .../trivy-report`. Ver `[.env.example](.env.example)`.
+
+### Ejemplos `curl` (con token)
+
+Sustituye `$TOKEN` por el `access_token` del login.
+
+```bash
+# Listar usuarios (requiere permiso de lectura en Gestor usuarios)
+curl -s "http://localhost:8000/api/v1/users" -H "Authorization: Bearer $TOKEN"
+
+# Crear proyecto (requiere permiso `c` en Gestor proyectos; p. ej. usuario rol Master)
+curl -s -X POST "http://localhost:8000/api/v1/projects" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"user_id":1,"name":"Mi proyecto","description":null}'
+
+# Informe Trivy mínimo (requiere permiso `u` en Gestor escaneos; ajusta scan_id)
+curl -s -X POST "http://localhost:8000/api/v1/scans/1/trivy-report" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"SchemaVersion":2,"Results":[{"Target":"image","Vulnerabilities":[{"VulnerabilityID":"CVE-2024-1","Severity":"HIGH","Title":"Test"}]}]}'
+```
+
+## Comandos que debe ejecutar el usuario
+
+
+Reconstruir y arrancar (desde la raíz del repo):
+
+```bash
+docker compose build api-gateway
+docker compose up -d api-gateway
+```
+
 
 ## Licencia
 

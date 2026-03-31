@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import BigInteger, Boolean, false, ForeignKey, Identity, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
-from app.db.base import Base
+from app.db.base import Base, BigIntPk
 from app.models.mixins import SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 class Permission(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "permissions"
 
-    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    id: Mapped[int] = mapped_column(BigIntPk, Identity(), primary_key=True)
     name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role_id: Mapped[int] = mapped_column(
         BigInteger,

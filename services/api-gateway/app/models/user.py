@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import BigInteger, ForeignKey, Identity, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
-from app.db.base import Base
+from app.db.base import Base, BigIntPk
 from app.models.mixins import SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
@@ -22,7 +22,7 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 class User(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    id: Mapped[int] = mapped_column(BigIntPk, Identity(), primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     password: Mapped[str] = mapped_column(String(255), nullable=False)

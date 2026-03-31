@@ -1,4 +1,4 @@
-"""API Gateway VulnCentral — salud del sistema, autenticación JWT y RBAC (Fase 3)."""
+"""API Gateway VulnCentral — salud, JWT, RBAC (Fase 3) y API /api/v1 CRUD + Trivy (Fase 4)."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.auth import router as auth_router
-from app.api.gestores import router as gestores_router
+from app.api.v1 import api_v1_router
 from app.middleware.jwt_auth import JWTAuthMiddleware
 
 logger = logging.getLogger(__name__)
@@ -105,7 +105,7 @@ def create_app() -> FastAPI:
         return {"service": "vulncentral-api-gateway"}
 
     application.include_router(auth_router)
-    application.include_router(gestores_router)
+    application.include_router(api_v1_router)
 
     return application
 
