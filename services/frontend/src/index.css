@@ -32,3 +32,321 @@ h1 {
   border-radius: 4px;
   font-size: 0.9rem;
 }
+
+/* —— Fase 7: panel —— */
+.vc-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.vc-sidebar {
+  width: 220px;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 1rem 0;
+  flex-shrink: 0;
+}
+
+.vc-sidebar__brand {
+  font-weight: 700;
+  padding: 0 1rem 1rem;
+  border-bottom: 1px solid #334155;
+  margin-bottom: 0.75rem;
+}
+
+.vc-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.vc-nav__link {
+  padding: 0.5rem 1rem;
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.vc-nav__link:hover {
+  color: #f8fafc;
+  background: #1e293b;
+}
+
+.vc-nav__link--active {
+  color: #38bdf8;
+  background: #1e293b;
+}
+
+.vc-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.vc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.vc-header__user {
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.vc-content {
+  padding: 1.5rem;
+  flex: 1;
+}
+
+.vc-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+}
+
+.vc-login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.vc-login__card {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+  width: 100%;
+  max-width: 400px;
+}
+
+.vc-login__card h1 {
+  margin-top: 0;
+}
+
+.vc-muted {
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.vc-dash-links {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+}
+
+.vc-dash-links li {
+  margin: 0.5rem 0;
+}
+
+.vc-dash-links a {
+  color: #0369a1;
+}
+
+.vc-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.vc-page-head--tools {
+  margin-top: 0.5rem;
+}
+
+.vc-page-head h1 {
+  margin: 0;
+}
+
+.vc-btn {
+  font: inherit;
+  padding: 0.45rem 0.9rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  cursor: pointer;
+}
+
+.vc-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vc-btn--primary {
+  background: #0369a1;
+  border-color: #0369a1;
+  color: #fff;
+}
+
+.vc-btn--ghost {
+  border: none;
+  background: transparent;
+  color: #0369a1;
+}
+
+.vc-btn--small {
+  font-size: 0.85rem;
+  padding: 0.25rem 0.5rem;
+  margin-right: 0.35rem;
+}
+
+.vc-btn--danger {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.vc-banner {
+  padding: 0.65rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.vc-banner--error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.vc-banner--ok {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.vc-table-wrap {
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.vc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.vc-table th,
+.vc-table td {
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.vc-table th {
+  background: #f1f5f9;
+  font-weight: 600;
+}
+
+.vc-table__actions {
+  white-space: nowrap;
+}
+
+.vc-ellipsis {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vc-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 50;
+}
+
+.vc-modal {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.25rem;
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.vc-modal--wide {
+  max-width: 640px;
+}
+
+.vc-pre {
+  font-size: 0.8rem;
+  background: #f1f5f9;
+  padding: 0.75rem;
+  border-radius: 6px;
+  overflow: auto;
+}
+
+.vc-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.vc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.vc-field span {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.vc-field input,
+.vc-field textarea,
+.vc-field select {
+  font: inherit;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+}
+
+.vc-textarea-code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+}
+
+.vc-form__actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.vc-steps {
+  display: flex;
+  gap: 1rem;
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.vc-steps__on {
+  color: #0369a1;
+  font-weight: 600;
+}
+
+.vc-panel {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-top: 1rem;
+}

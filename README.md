@@ -1,5 +1,8 @@
 # VulnCentral
 
+![Vulncentral](docs/LogoVC-cuadrado.png)
+
+
 # 🏗️ Plataforma base (Fase 1): estructura de repositorio, Docker Compose, servicios mínimos sin lógica de negocio.
 
 ## Requisitos
@@ -24,10 +27,14 @@
    docker compose up --build
   ```
 3. Comprobar servicios:
-  - Frontend: [http://localhost:80](http://localhost:80) (o el puerto mapeado si cambias el compose)
+  - Frontend: [http://localhost:8080](http://localhost:8080) (puerto por defecto `FRONTEND_PORT` en [`.env.example`](.env.example); en Windows el **80** a menudo está ocupado — si quieres 80, define `FRONTEND_PORT=80` en `.env` y asegúrate de que el puerto esté libre)
   - API: [http://localhost:8000/health](http://localhost:8000/health) (puerto por defecto `API_GATEWAY_PORT`)
   - RabbitMQ Management: [http://localhost:15672](http://localhost:15672) (usuario/clave según `.env`)
   - pgAdmin: [http://localhost:5050](http://localhost:5050) (puerto `PGADMIN_PORT`; email/clave `PGADMIN_DEFAULT_*` en `.env`). Al registrar el servidor usa host `**postgres**`, puerto **5432**, usuario y contraseña de PostgreSQL del `.env`.
+
+**Docker Compose en PowerShell:** si ves líneas en rojo con `NativeCommandError` y texto `Built`, suele ser **stderr** de Docker (no implica fallo). Comprueba con `docker compose ps` que los servicios estén `running` / `healthy`. Si el error es **bind: address already in use** al publicar el frontend, otro proceso usa ese puerto: deja `FRONTEND_PORT=8080` en `.env` (valor por defecto en compose) o libera el puerto.
+
+Tras cambiar `FRONTEND_PORT` o `CORS_ORIGINS` en `.env`, recrea los servicios afectados: `docker compose up -d --force-recreate frontend api-gateway` (así el mapeo de puertos y CORS se aplican sin contenedores antiguos).
 
 ## Producción (override)
 
@@ -287,11 +294,56 @@ docker compose exec api-gateway python -m app.scripts.seed   # si aplica (primer
 
 Con Docker Compose, entra al contenedor del api-gateway o ejecuta los mismos comandos donde `DATABASE_URL` / `POSTGRES_*` apunten a la instancia correcta. **Tras el primer despliegue** conviene correr `alembic upgrade head` y el seed al menos una vez.
 
-### Endpoints útiles para probar
+### Lista de endpoints del Core API (`services/api-gateway`)
 
-- `POST /auth/login` — cuerpo formulario: `username` (email), `password`.
-- `GET /auth/me` — requiere Bearer token.
-- `GET /api/v1/gestores/usuarios` (y análogos `/proyectos`, `/escaneos`, `/vulnerabilidades`, `/logs`) — ejemplo de lectura con permiso `r` sobre cada caso de uso.
+Documentación interactiva: **`/docs`** (Swagger) y **`/redoc`**. Las rutas bajo `/api` y `GET /auth/me` exigen cabecera `Authorization: Bearer <access_token>`. El CRUD y `gestores/*` aplican **RBAC** según permisos del rol.
+
+**Sin JWT**
+
+| Método | Ruta | Descripción |
+| ------ | ---- | ----------- |
+| `GET` | `/` | Identificación del servicio |
+| `GET` | `/health` | Comprobación de salud |
+| `POST` | `/auth/login` | Login (`username` email, `password`; formulario URL-encoded) |
+
+**Con JWT**
+
+| Método | Ruta |
+| ------ | ---- |
+| `GET` | `/auth/me` |
+| `GET` | `/api/v1/users` |
+| `POST` | `/api/v1/users` |
+| `GET` | `/api/v1/users/{user_id}` |
+| `PATCH` | `/api/v1/users/{user_id}` |
+| `DELETE` | `/api/v1/users/{user_id}` |
+| `GET` | `/api/v1/projects` |
+| `POST` | `/api/v1/projects` |
+| `GET` | `/api/v1/projects/{project_id}` |
+| `PATCH` | `/api/v1/projects/{project_id}` |
+| `DELETE` | `/api/v1/projects/{project_id}` |
+| `GET` | `/api/v1/scans` |
+| `POST` | `/api/v1/scans` |
+| `GET` | `/api/v1/scans/{scan_id}` |
+| `PATCH` | `/api/v1/scans/{scan_id}` |
+| `DELETE` | `/api/v1/scans/{scan_id}` |
+| `POST` | `/api/v1/scans/{scan_id}/trivy-report` |
+| `GET` | `/api/v1/vulnerabilities` |
+| `POST` | `/api/v1/vulnerabilities` |
+| `GET` | `/api/v1/vulnerabilities/{vuln_id}` |
+| `PATCH` | `/api/v1/vulnerabilities/{vuln_id}` |
+| `DELETE` | `/api/v1/vulnerabilities/{vuln_id}` |
+| `GET` | `/api/v1/gestores/usuarios` |
+| `GET` | `/api/v1/gestores/proyectos` |
+| `GET` | `/api/v1/gestores/escaneos` |
+| `GET` | `/api/v1/gestores/vulnerabilidades` |
+| `GET` | `/api/v1/gestores/logs` |
+| `GET` | `/api/v1/audit-logs` |
+
+`GET /auth/me` incluye **`permissions`**: lista de `{ use_case, c, r, u, d }` por cada caso de uso del seed (para UIs que oculten acciones según RBAC).
+
+`POST .../trivy-report` responde **202 Accepted** y encola el procesamiento en el worker (no envía el JSON por RabbitMQ).
+
+`GET /api/v1/audit-logs?skip=&limit=` — listado paginado de `audit_logs` (permiso **Gestor logs** `r`).
 
 ### Ejemplo con curl (login)
 
@@ -392,6 +444,45 @@ docker compose build api-gateway worker
 docker compose up -d api-gateway worker rabbitmq postgres
 ```
 
+# Fase 6 — API Gateway y RabbitMQ (integración con el worker)
+
+**Pasos realizados (cierre)**
+
+- **Objetivo**: arquitectura por microservicios donde el Core API **encola** el trabajo y el worker **consume**; el JSON del informe **no** se envía por RabbitMQ.
+- **Contrato AMQP** (payload de la tarea, serialización JSON): ver [docs/amqp-ingest-contract.md](docs/amqp-ingest-contract.md). En cola solo van **`scan_id`**, **ruta absoluta** del fichero en el volumen y **`correlation_id`** opcional para trazas; el contenido Trivy queda en disco.
+- **Tarea Celery**: `vulncentral.ingest_trivy_json`, cola `vulncentral`. Productor: `services/api-gateway/app/celery_client.py` (`enqueue_ingest_trivy_json`); tras validar y escribir el archivo, el endpoint `POST /api/v1/scans/{scan_id}/trivy-report` responde **202** con `task_id` y `correlation_id`.
+- **Runtime**: en `.env` define **`CELERY_BROKER_URL`** (y si aplica **`CELERY_RESULT_BACKEND`**) alineados con el broker RabbitMQ del stack. El volumen Docker **`reports_data`** debe estar montado en **`/app/data/reports`** en **api-gateway** y **worker** (ya configurado en [`docker-compose.yml`](docker-compose.yml)).
+
+# Fase 7 — Frontend React (panel y consumo del Core API)
+
+**Pasos realizados**
+
+- **Stack**: React 18 + Vite + **`react-router-dom`**; estado de sesión con **`AuthContext`** (token en `sessionStorage`, perfil vía `GET /auth/me` con **`permissions`**).
+- **Rutas UI** (tras login): `/` panel, `/users`, `/projects`, `/scans`, `/vulnerabilities`, `/logs`, `/flow/nuevo` (asistente proyecto → escaneo → vulnerabilidades manual o JSON Trivy). Entrada pública: `/login`.
+- **RBAC en UI**: enlaces del menú y botones crear/editar/eliminar/ver según `permissions` del mismo nombre de caso de uso que el API (`Gestor usuarios`, etc.).
+- **Servicios**: `services/frontend/src/services/*` + `apiClient.js` (`VITE_API_BASE_URL`, Bearer en rutas protegidas; login con `application/x-www-form-urlencoded`).
+- **API ampliada para el panel**: `GET /auth/me` devuelve **`permissions`**; **`GET /api/v1/audit-logs`** lista `audit_logs` con paginación (puede estar vacío si no hay filas).
+- **Código**: páginas en `services/frontend/src/pages/`, layout en `components/Layout.jsx`, auth en `context/AuthContext.jsx`.
+
+**Desarrollo local del frontend** (API en otro origen: configurar proxy o CORS ya previsto en el Core API):
+
+```bash
+cd services/frontend
+npm ci
+# Opcional: .env.local con VITE_API_BASE_URL=http://localhost:8000
+npm run dev
+```
+
+**Build de producción**:
+
+```bash
+cd services/frontend
+npm ci
+npm run build
+```
+
+En Docker, el build del servicio `frontend` usa el argumento **`VITE_API_BASE_URL`** (ver [`docker-compose.yml`](docker-compose.yml)); ajusta la URL pública del API para el navegador.
+
 ## Comandos que debe ejecutar el usuario
 
 
@@ -402,6 +493,25 @@ docker compose build api-gateway
 docker compose up -d api-gateway
 ```
 
+# Fase 8 — Seguridad (OWASP: rate limit, auditoría, IDOR, MIME, logging)
+
+**Controles añadidos**
+
+- **Rate limiting** (`slowapi`): por defecto **`POST /auth/login`** limita intentos por IP (cabecera **`X-Forwarded-For`** si existe; si no, IP del cliente). Respuesta **429** con código `rate_limited`. Variables: **`RATE_LIMIT_ENABLED`** (`true` por defecto; `false`/`0`/`off` desactiva), **`RATE_LIMIT_LOGIN`** (p. ej. `5/minute`; `0`/`off`/`none` desactiva solo el límite de login, útil en tests).
+- **Auditoría**: inserciones en **`audit_logs`** en login (éxito/fallo), mutaciones relevantes en usuarios/proyectos/escaneos/vulnerabilidades e ingesta Trivy. Los registros **no** incluyen contraseñas ni tokens. Migración Alembic **`9b1c2d3e4003`**: columna **`audit_logs.user_id`** pasa a ser **nullable** (eventos anónimos, p. ej. login fallido). Tras desplegar: `alembic upgrade head`.
+- **IDOR / alcance por objeto**: salvo roles con alcance global (**Administrator** y **Master**), los listados y lecturas de **proyectos**, **escaneos** y **vulnerabilidades** se restringen a recursos cuyo proyecto pertenece al usuario autenticado (`projects.user_id`). Crear proyecto sin alcance global solo si **`user_id` del cuerpo** coincide con el usuario actual.
+- **Content-Type JSON**: en **`POST`/`PATCH`/`PUT`** bajo **`/api/v1`** con cuerpo no vacío se exige **`Content-Type: application/json`**; si no, **415** (`unsupported_media_type`). Aplica también a **`POST .../trivy-report`** cuando hay cuerpo.
+- **Logging**: el manejador global de excepciones **no** concatena el mensaje interno de la excepción en el log (evita fugas accidentales en trazas); las respuestas al cliente siguen siendo genéricas donde ya estaba unificado.
+
+**Pruebas** (desde `services/api-gateway`): `pytest tests/test_f8_security.py -q` (MIME, auditoría tras login, IDOR con rol Inspector).
+
+**Comandos tras actualizar código**
+
+```bash
+docker compose build api-gateway
+docker compose up -d api-gateway
+docker compose exec api-gateway alembic upgrade head
+```
 
 ## Licencia
 

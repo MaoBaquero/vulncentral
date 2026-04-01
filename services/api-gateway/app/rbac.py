@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import Depends, HTTPException, status
 from sqlalchemy import select
@@ -13,6 +13,36 @@ from app.errors_format import error_payload
 from app.models.permission import Permission
 from app.models.use_case import UseCase
 from app.models.user import User
+
+
+def permissions_matrix_for_role(db: Session, role_id: int | None) -> list[dict[str, Any]]:
+    """Matriz c/r/u/d por caso de uso para el rol (UI y /auth/me)."""
+    if role_id is None:
+        return []
+    use_cases = db.scalars(
+        select(UseCase)
+        .where(UseCase.deleted_at.is_(None))
+        .order_by(UseCase.id),
+    ).all()
+    out: list[dict[str, Any]] = []
+    for uc in use_cases:
+        perm = db.scalar(
+            select(Permission).where(
+                Permission.role_id == role_id,
+                Permission.use_case_id == uc.id,
+                Permission.deleted_at.is_(None),
+            ),
+        )
+        out.append(
+            {
+                "use_case": uc.name,
+                "c": bool(perm and perm.perm_c),
+                "r": bool(perm and perm.perm_r),
+                "u": bool(perm and perm.perm_u),
+                "d": bool(perm and perm.perm_d),
+            },
+        )
+    return out
 
 PermAction = Literal["c", "r", "u", "d"]
 

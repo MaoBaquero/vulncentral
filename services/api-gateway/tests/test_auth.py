@@ -80,6 +80,11 @@ def test_me_ok(client: TestClient) -> None:
     data = r.json()
     assert data["email"] == "elmero@admon.com"
     assert data["role_name"] == "Administrator"
+    assert "permissions" in data
+    assert isinstance(data["permissions"], list)
+    assert len(data["permissions"]) >= 5
+    gu = next(p for p in data["permissions"] if p["use_case"] == "Gestor usuarios")
+    assert gu["c"] is True and gu["r"] is True
 
 
 def test_gestor_usuarios_admin_has_read(client: TestClient) -> None:

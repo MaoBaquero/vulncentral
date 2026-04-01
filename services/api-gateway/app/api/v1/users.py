@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.audit import record_audit
 from app.deps import get_db
 from app.errors_format import error_payload
 from app.models.role import Role
@@ -38,7 +39,7 @@ def list_users(
 
 @router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def create_user(
-    _: Annotated[User, Depends(require_permission(USE_CASE_USUARIOS, "c"))],
+    actor: Annotated[User, Depends(require_permission(USE_CASE_USUARIOS, "c"))],
     body: UserCreate,
     db: Session = Depends(get_db),
 ) -> User:
@@ -74,6 +75,13 @@ def create_user(
         db.rollback()
         raise
     db.refresh(u)
+    record_audit(
+        db,
+        user_id=actor.id,
+        action="user_create",
+        entity=f"user:{u.id}",
+        commit=True,
+    )
     return u
 
 
@@ -94,7 +102,7 @@ def get_user(
 
 @router.patch("/{user_id}", response_model=UserRead)
 def update_user(
-    _: Annotated[User, Depends(require_permission(USE_CASE_USUARIOS, "u"))],
+    actor: Annotated[User, Depends(require_permission(USE_CASE_USUARIOS, "u"))],
     user_id: int,
     body: UserUpdate,
     db: Session = Depends(get_db),
@@ -141,12 +149,19 @@ def update_user(
         db.rollback()
         raise
     db.refresh(u)
+    record_audit(
+        db,
+        user_id=actor.id,
+        action="user_update",
+        entity=f"user:{user_id}",
+        commit=True,
+    )
     return u
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(
-    _: Annotated[User, Depends(require_permission(USE_CASE_USUARIOS, "d"))],
+    actor: Annotated[User, Depends(require_permission(USE_CASE_USUARIOS, "d"))],
     user_id: int,
     db: Session = Depends(get_db),
 ) -> None:
@@ -158,3 +173,10 @@ def delete_user(
         )
     u.deleted_at = datetime.now(timezone.utc)
     db.commit()
+    record_audit(
+        db,
+        user_id=actor.id,
+        action="user_delete",
+        entity=f"user:{user_id}",
+        commit=True,
+    )

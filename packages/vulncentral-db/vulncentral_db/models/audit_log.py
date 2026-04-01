@@ -18,10 +18,10 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id: Mapped[int] = mapped_column(BigIntPk, Identity(), primary_key=True)
-    user_id: Mapped[int] = mapped_column(
+    user_id: Mapped[int | None] = mapped_column(
         BigInteger,
         ForeignKey("users.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
     action: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -32,7 +32,7 @@ class AuditLog(Base):
         nullable=False,
     )
 
-    user: Mapped[User] = relationship(
+    user: Mapped[User | None] = relationship(
         "User",
         back_populates="audit_logs",
         foreign_keys=[user_id],

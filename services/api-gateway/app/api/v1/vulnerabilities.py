@@ -9,8 +9,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.audit import record_audit
 from app.deps import get_db
 from app.errors_format import error_payload
+from app.idor import (
+    get_scan_for_read,
+    get_vulnerability_for_read,
+    visible_project_ids,
+)
 from app.models.scan import Scan
 from app.models.user import User
 from app.models.vulnerability import Vulnerability
@@ -25,33 +31,31 @@ from app.schemas.vulnerability import (
 router = APIRouter(prefix="/vulnerabilities", tags=["vulnerabilities"])
 
 
-def _get_vulnerability(db: Session, vuln_id: int) -> Vulnerability | None:
-    return db.scalar(
-        select(Vulnerability).where(
-            Vulnerability.id == vuln_id,
-            Vulnerability.deleted_at.is_(None),
-        ),
-    )
-
-
-def _ensure_scan(db: Session, scan_id: int) -> None:
-    s = db.scalar(select(Scan).where(Scan.id == scan_id, Scan.deleted_at.is_(None)))
-    if s is None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=error_payload("validation_error", "Escaneo no válido o inexistente."),
-        )
-
-
 @router.get("", response_model=list[VulnerabilityRead])
 def list_vulnerabilities(
-    _: Annotated[User, Depends(require_permission(USE_CASE_VULNERABILIDADES, "r"))],
+    current: Annotated[User, Depends(require_permission(USE_CASE_VULNERABILIDADES, "r"))],
     db: Session = Depends(get_db),
 ) -> list[Vulnerability]:
+    vis = visible_project_ids(db, current)
+    if vis is None:
+        return list(
+            db.scalars(
+                select(Vulnerability)
+                .where(Vulnerability.deleted_at.is_(None))
+                .order_by(Vulnerability.id),
+            ).all(),
+        )
+    if not vis:
+        return []
     return list(
         db.scalars(
             select(Vulnerability)
-            .where(Vulnerability.deleted_at.is_(None))
+            .join(Scan, Vulnerability.scan_id == Scan.id)
+            .where(
+                Vulnerability.deleted_at.is_(None),
+                Scan.deleted_at.is_(None),
+                Scan.project_id.in_(vis),
+            )
             .order_by(Vulnerability.id),
         ).all(),
     )
@@ -59,11 +63,11 @@ def list_vulnerabilities(
 
 @router.post("", response_model=VulnerabilityRead, status_code=status.HTTP_201_CREATED)
 def create_vulnerability(
-    _: Annotated[User, Depends(require_permission(USE_CASE_VULNERABILIDADES, "c"))],
+    current: Annotated[User, Depends(require_permission(USE_CASE_VULNERABILIDADES, "c"))],
     body: VulnerabilityCreate,
     db: Session = Depends(get_db),
 ) -> Vulnerability:
-    _ensure_scan(db, body.scan_id)
+    get_scan_for_read(db, current, body.scan_id)
     title_s = sanitize_text(body.title, escape_html=True) or ""
     desc = (
         sanitize_text(body.description, escape_html=True)
@@ -85,40 +89,36 @@ def create_vulnerability(
     db.add(v)
     db.commit()
     db.refresh(v)
+    record_audit(
+        db,
+        user_id=current.id,
+        action="vulnerability_create",
+        entity=f"vulnerability:{v.id}",
+        commit=True,
+    )
     return v
 
 
 @router.get("/{vuln_id}", response_model=VulnerabilityRead)
 def get_vulnerability(
-    _: Annotated[User, Depends(require_permission(USE_CASE_VULNERABILIDADES, "r"))],
+    current: Annotated[User, Depends(require_permission(USE_CASE_VULNERABILIDADES, "r"))],
     vuln_id: int,
     db: Session = Depends(get_db),
 ) -> Vulnerability:
-    v = _get_vulnerability(db, vuln_id)
-    if v is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=error_payload("not_found", "Vulnerabilidad no encontrada."),
-        )
-    return v
+    return get_vulnerability_for_read(db, current, vuln_id)
 
 
 @router.patch("/{vuln_id}", response_model=VulnerabilityRead)
 def update_vulnerability(
-    _: Annotated[User, Depends(require_permission(USE_CASE_VULNERABILIDADES, "u"))],
+    current: Annotated[User, Depends(require_permission(USE_CASE_VULNERABILIDADES, "u"))],
     vuln_id: int,
     body: VulnerabilityUpdate,
     db: Session = Depends(get_db),
 ) -> Vulnerability:
-    v = _get_vulnerability(db, vuln_id)
-    if v is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=error_payload("not_found", "Vulnerabilidad no encontrada."),
-        )
+    v = get_vulnerability_for_read(db, current, vuln_id)
     data = body.model_dump(exclude_unset=True)
     if "scan_id" in data and data["scan_id"] is not None:
-        _ensure_scan(db, data["scan_id"])
+        get_scan_for_read(db, current, data["scan_id"])
         v.scan_id = data["scan_id"]
     if "title" in data and data["title"] is not None:
         v.title = sanitize_text(data["title"], escape_html=True) or ""
@@ -139,20 +139,29 @@ def update_vulnerability(
         v.line_number = data["line_number"]
     db.commit()
     db.refresh(v)
+    record_audit(
+        db,
+        user_id=current.id,
+        action="vulnerability_update",
+        entity=f"vulnerability:{vuln_id}",
+        commit=True,
+    )
     return v
 
 
 @router.delete("/{vuln_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_vulnerability(
-    _: Annotated[User, Depends(require_permission(USE_CASE_VULNERABILIDADES, "d"))],
+    current: Annotated[User, Depends(require_permission(USE_CASE_VULNERABILIDADES, "d"))],
     vuln_id: int,
     db: Session = Depends(get_db),
 ) -> None:
-    v = _get_vulnerability(db, vuln_id)
-    if v is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=error_payload("not_found", "Vulnerabilidad no encontrada."),
-        )
+    v = get_vulnerability_for_read(db, current, vuln_id)
     v.deleted_at = datetime.now(timezone.utc)
     db.commit()
+    record_audit(
+        db,
+        user_id=current.id,
+        action="vulnerability_delete",
+        entity=f"vulnerability:{vuln_id}",
+        commit=True,
+    )
