@@ -12,12 +12,15 @@ WORKDIR /app
 
 RUN mkdir -p /app/data/reports && chown -R appuser:appgroup /app/data
 
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+COPY packages/vulncentral-db /opt/vulncentral-db
+RUN pip install --upgrade pip && pip install /opt/vulncentral-db
 
-COPY alembic.ini .
-COPY alembic ./alembic
-COPY app ./app
+COPY services/api-gateway/requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY services/api-gateway/alembic.ini .
+COPY services/api-gateway/alembic ./alembic
+COPY services/api-gateway/app ./app
 
 USER appuser
 

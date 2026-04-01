@@ -1,25 +1,27 @@
-"""CRUD /api/v1/scans e ingesta Trivy."""
+"""CRUD /api/v1/scans e ingesta Trivy (informe vía volumen + cola; ver services/worker/trivy_processing.py)."""
 
 from __future__ import annotations
 
+import os
+import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.celery_client import enqueue_ingest_trivy_json
 from app.deps import get_db
 from app.errors_format import error_payload
 from app.models.project import Project
 from app.models.scan import Scan
 from app.models.user import User
-from app.models.vulnerability import Vulnerability
 from app.rbac import USE_CASE_ESCANEOS, require_permission
 from app.sanitize import sanitize_text
-from app.schemas.enums import Severity, VulnerabilityStatus
 from app.schemas.scan import ScanCreate, ScanRead, ScanUpdate
-from app.schemas.trivy import TrivyReport
+from app.schemas.trivy import TrivyReport, TrivyReportQueued
 
 router = APIRouter(prefix="/scans", tags=["scans"])
 
@@ -37,25 +39,6 @@ def _ensure_project(db: Session, project_id: int) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=error_payload("validation_error", "Proyecto no válido o inexistente."),
         )
-
-
-def _map_trivy_severity(raw: str | None) -> Severity:
-    if not raw:
-        return Severity.MEDIUM
-    u = raw.strip().upper()
-    if u == "UNKNOWN":
-        return Severity.LOW
-    try:
-        return Severity(u)
-    except ValueError:
-        return Severity.MEDIUM
-
-
-def _truncate(s: str, max_len: int) -> str:
-    s = s.strip()
-    if len(s) <= max_len:
-        return s
-    return s[: max_len - 3] + "..." if max_len > 3 else s[:max_len]
 
 
 @router.get("", response_model=list[ScanRead])
@@ -143,49 +126,31 @@ def delete_scan(
 
 @router.post(
     "/{scan_id}/trivy-report",
-    response_model=list[dict],
-    status_code=status.HTTP_201_CREATED,
+    response_model=TrivyReportQueued,
+    status_code=status.HTTP_202_ACCEPTED,
 )
 def ingest_trivy_report(
     _: Annotated[User, Depends(require_permission(USE_CASE_ESCANEOS, "u"))],
     scan_id: int,
     report: TrivyReport,
     db: Session = Depends(get_db),
-) -> list[dict[str, int | str]]:
+) -> TrivyReportQueued:
     s = _get_scan(db, scan_id)
     if s is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=error_payload("not_found", "Escaneo no encontrado."),
         )
-    created: list[Vulnerability] = []
-    default_status = VulnerabilityStatus.OPEN.value
-    for result in report.Results:
-        target = (result.Target or ".").strip() or "."
-        fp = _truncate(sanitize_text(target, escape_html=False) or ".", 255)
-        for tv in result.Vulnerabilities:
-            vid = (tv.VulnerabilityID or "").strip() or "UNKNOWN"
-            cve = _truncate(vid, 50)
-            title_src = (tv.Title or tv.VulnerabilityID or tv.PkgName or "Finding").strip()
-            title = _truncate(sanitize_text(title_src, escape_html=True) or "Finding", 255)
-            desc_raw = tv.Description
-            desc = None
-            if desc_raw:
-                desc = sanitize_text(desc_raw, escape_html=True)
-            sev = _map_trivy_severity(tv.Severity)
-            v = Vulnerability(
-                scan_id=scan_id,
-                title=title,
-                description=desc,
-                severity=sev.value,
-                status=default_status,
-                cve=cve,
-                file_path=fp,
-                line_number=0,
-            )
-            db.add(v)
-            created.append(v)
-    db.commit()
-    for v in created:
-        db.refresh(v)
-    return [{"id": v.id, "cve": v.cve} for v in created]
+    reports_dir = Path(os.getenv("REPORTS_DIR", "/app/data/reports")).resolve()
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"scan_{scan_id}_{uuid.uuid4().hex}.json"
+    out_path = reports_dir / filename
+    out_path.write_text(report.model_dump_json(), encoding="utf-8")
+    abs_path = str(out_path.resolve())
+    correlation_id = str(uuid.uuid4())
+    async_result = enqueue_ingest_trivy_json(scan_id, abs_path, correlation_id=correlation_id)
+    return TrivyReportQueued(
+        task_id=str(async_result.id),
+        file_path=abs_path,
+        correlation_id=correlation_id,
+    )

@@ -45,7 +45,6 @@ app.conf.update(
     broker_connection_retry_on_startup=True,
 )
 
-# Descubre el módulo tasks.tasks (vacío en Fase 1).
 app.autodiscover_tasks(["tasks"], related_name="tasks", force=True)
 
-logger.info("Celery configurado (broker definido, sin tareas de dominio).")
+logger.info("Celery configurado (tarea vulncentral.ingest_trivy_json).")

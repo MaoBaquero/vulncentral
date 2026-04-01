@@ -12,6 +12,8 @@ from sqlalchemy.pool import StaticPool
 
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-do-not-use-in-production")
 os.environ.setdefault("JWT_EXPIRE_MINUTES", "60")
+# Broker en memoria para importar app.celery_client en tests sin RabbitMQ.
+os.environ.setdefault("CELERY_BROKER_URL", "memory://")
 
 from app.db.base import Base  # noqa: E402
 from app.deps import get_db  # noqa: E402

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -101,8 +103,9 @@ def test_v1_admin_cannot_create_scan(
 
 def test_v1_project_scan_trivy_flow(
     client: TestClient,
-    admin_headers: dict[str, str],
     master_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
 ) -> None:
     pr = client.post(
         "/api/v1/projects",
@@ -119,6 +122,22 @@ def test_v1_project_scan_trivy_flow(
     )
     assert sr.status_code == 201
     scan_id = sr.json()["id"]
+
+    monkeypatch.setenv("REPORTS_DIR", str(tmp_path))
+
+    _captured: list[tuple[int, str, str | None]] = []
+
+    def _fake_enqueue(sid: int, fp: str, correlation_id: str | None = None):
+        class _R:
+            id = "test-task-id"
+
+        _captured.append((sid, fp, correlation_id))
+        return _R()
+
+    monkeypatch.setattr(
+        "app.api.v1.scans.enqueue_ingest_trivy_json",
+        _fake_enqueue,
+    )
 
     trivy_body = {
         "SchemaVersion": 2,
@@ -142,15 +161,17 @@ def test_v1_project_scan_trivy_flow(
         headers=master_headers,
         json=trivy_body,
     )
-    assert tr.status_code == 201
-    items = tr.json()
-    assert len(items) == 1
-    assert items[0]["cve"].startswith("CVE-")
-
-    lr = client.get("/api/v1/vulnerabilities", headers=admin_headers)
-    assert lr.status_code == 200
-    vulns = lr.json()
-    assert any(v["cve"] == "CVE-2024-0001" for v in vulns)
+    assert tr.status_code == 202
+    payload = tr.json()
+    assert payload["status"] == "queued"
+    assert payload["task_id"] == "test-task-id"
+    assert payload["file_path"].endswith(".json")
+    assert "correlation_id" in payload and len(payload["correlation_id"]) > 0
+    assert len(_captured) == 1
+    assert _captured[0][0] == scan_id
+    assert _captured[0][1] == payload["file_path"]
+    assert _captured[0][2] == payload["correlation_id"]
+    assert Path(payload["file_path"]).is_file()
 
 
 def test_trivy_report_validation_422(
@@ -184,6 +205,7 @@ def test_trivy_report_validation_422(
 
 def test_trivy_payload_too_large(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MAX_JSON_BODY_BYTES", "50")
+    monkeypatch.setenv("CELERY_BROKER_URL", "memory://")
     app = create_app()
     with TestClient(app) as client:
         body = b"{" + b'"x": "' + b"y" * 100 + b'"}'

@@ -52,16 +52,55 @@ El `docker-compose.yml` define `deploy.resources.limits.memory` por servicio, co
 
 ```text
 vulncentral/
+├── packages/
+│   └── vulncentral-db/  # Modelos ORM + auth bcrypt compartidos (API + worker, una sola PostgreSQL)
 ├── services/
 │   ├── frontend/      # React (Vite) + nginx
-│   ├── api-gateway/   # FastAPI
-│   └── worker/        # Celery
+│   ├── api-gateway/   # FastAPI (Core API)
+│   └── worker/        # Celery (Ingestion worker)
+├── scripts/           # p. ej. smoke-compose.sh
 ├── orchestration/     # Docker Swarm, Kubernetes
 ├── infrastructure/    # Terraform, Ansible
 ├── monitoring/        # Prometheus, Grafana, Loki (referencia)
 ├── docs/
 └── .github/workflows/
 ```
+
+## Arquitectura (microservicios y PostgreSQL compartida)
+
+Vista de los **servicios desplegables** (contenedores), el **paquete compartido** `vulncentral_db` (mismo código ORM en API y worker, no es un proceso en ejecución) y la **infraestructura** común. Detalle en [docs/architecture-shared-db-microservices.md](docs/architecture-shared-db-microservices.md).
+
+```mermaid
+flowchart TB
+  subgraph clients [Cliente]
+    Browser[Navegador]
+  end
+  subgraph deployable [Microservicios_contenedor]
+    FE[Frontend_SPA_Nginx]
+    API[Core_API_FastAPI]
+    WK[Ingestion_Worker_Celery]
+  end
+  subgraph codeShared [Codigo_compartido_imagen]
+    VDB["vulncentral_db ORM y auth"]
+  end
+  subgraph infra [Infraestructura]
+    PG[("PostgreSQL una instancia")]
+    MQ[RabbitMQ]
+    VOL[("Volumen reports_data")]
+  end
+  Browser -->|"HTTPS"| FE
+  FE -->|"HTTP JWT"| API
+  API -.->|"import"| VDB
+  WK -.->|"import"| VDB
+  API -->|"AMQP tarea ingest"| MQ
+  MQ -->|"consume Celery"| WK
+  API -->|"escribe JSON"| VOL
+  WK -->|"lee y borra tras commit"| VOL
+  API -->|"SQL"| PG
+  WK -->|"SQL"| PG
+```
+
+**Flujo de ingesta Trivy:** el Core API valida el JSON, lo guarda en el volumen y publica en RabbitMQ la tarea `vulncentral.ingest_trivy_json` con `scan_id`, ruta absoluta y `correlation_id`. El worker procesa y persiste en la misma base; luego elimina el fichero si el commit fue correcto.
 
 ## Celery
 
@@ -81,9 +120,14 @@ Hosts de ejemplo en Ingress: `api.vulncentral.local`, `app.vulncentral.local`.
 ## Verificación local (sin Docker)
 
 ```bash
-# API Gateway
+# API Gateway (instala `vulncentral_db` editable desde packages/)
 cd services/api-gateway
 pip install -r requirements-dev.txt
+pytest -q
+
+# Worker
+cd services/worker
+pip install -r requirements.txt -r requirements-dev.txt
 pytest -q
 
 # Frontend
@@ -284,7 +328,7 @@ Pasos realizados:
 - API versionada bajo `**/api/v1`**: CRUD de **users**, **projects**, **scans** y **vulnerabilities** con soft delete (`deleted_at`), respuestas de error JSON coherentes con el resto de la app.
 - **Enums** `Severity` y `VulnerabilityStatus` (`str` + `Enum`) para severidad y estado de vulnerabilidad, serializables en JSON.
 - **RBAC** por caso de uso (`Gestor usuarios`, `Gestor proyectos`, etc.) con acciones `c` / `r` / `u` / `d` según la matriz del seed (p. ej. el rol Administrator **no** tiene permiso `c` sobre escaneos; para crear escaneos o proyectos suele hacer falta un rol con ese permiso, como Master).
-- **Ingesta Trivy**: `POST /api/v1/scans/{scan_id}/trivy-report` con cuerpo JSON alineado al informe estándar de Trivy (`SchemaVersion`, `Results[]`, `Vulnerabilities[]`, etc.); crea filas en `vulnerabilities` (estado inicial `OPEN`). Requiere permiso `**u`** sobre «Gestor escaneos» (coherente con el seed para Administrator).
+- **Ingesta Trivy**: `POST /api/v1/scans/{scan_id}/trivy-report` acepta el mismo JSON de Trivy; el API lo guarda en volumen y encola el procesamiento (**202** + `task_id`). La persistencia en `vulnerabilities` la hace el **worker Celery** (Fase 5). Requiere permiso `**u`** sobre «Gestor escaneos».
 - **Seguridad**: saneado de texto (incl. `html.escape` en descripciones y campos sensibles a XSS) antes de persistir; límite de tamaño del cuerpo para la ruta Trivy vía `**MAX_JSON_BODY_BYTES`** (por defecto 10 MiB si no se define). La comprobación usa la cabecera `**Content-Length**` cuando está presente.
 - Rutas de ejemplo RBAC movidas a `**/api/v1/gestores/...**`.
 
@@ -309,6 +353,43 @@ curl -s -X POST "http://localhost:8000/api/v1/projects" \
 curl -s -X POST "http://localhost:8000/api/v1/scans/1/trivy-report" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"SchemaVersion":2,"Results":[{"Target":"image","Vulnerabilities":[{"VulnerabilityID":"CVE-2024-1","Severity":"HIGH","Title":"Test"}]}]}'
+```
+
+---
+
+# Fase 5 — Worker Celery: informe en volumen, cola y PostgreSQL
+
+**Pasos realizados**
+
+- **Flujo**: el API valida el cuerpo Trivy, escribe el JSON en el volumen compartido (`reports_data` montado en `/app/data/reports` en `api-gateway` y `worker`), publica en RabbitMQ la tarea `vulncentral.ingest_trivy_json` con `scan_id`, **ruta absoluta** del fichero y `correlation_id` (trazas). El worker lee el archivo, normaliza según el mapeo de la fase (CVE, título, descripción, severidad, `file_path` desde `PkgName`/`Target`, estado `OPEN`, `line_number` 0) y hace `commit` en PostgreSQL.
+- **Respuesta HTTP**: **202 Accepted** con `status: "queued"`, `task_id`, `file_path` y `correlation_id`. Para ver las vulnerabilidades creadas, usar `GET /api/v1/vulnerabilities` cuando el worker haya terminado.
+- **Modelos compartidos**: el paquete [`packages/vulncentral-db`](packages/vulncentral-db) (`vulncentral_db`) es la fuente única de `Base` y tablas ORM para API y worker (PostgreSQL única). Ver [docs/architecture-shared-db-microservices.md](docs/architecture-shared-db-microservices.md), [docs/amqp-ingest-contract.md](docs/amqp-ingest-contract.md) y [docs/migrations-governance.md](docs/migrations-governance.md).
+- **Docker**: el build de `api-gateway` y `worker` usa **contexto la raíz del repo** (`docker-compose.yml`) para copiar `packages/vulncentral-db`. Contenedores: `vulncentral-core-api`, `vulncentral-ingestion-worker` (el nombre del servicio en Compose sigue siendo `api-gateway` / `worker`).
+- **Limpieza**: el worker **elimina el JSON** del volumen **solo tras** un `commit` correcto. Si falla validación o persistencia, el fichero permanece para diagnóstico o reintento manual (y reintentos de Celery en errores transitorios). Una limpieza periódica de huérfanos puede añadirse después si hace falta.
+- **Seguridad**: comprobación de existencia del fichero y que su ruta canónica quede bajo `REPORTS_BASE_DIR` (por defecto `/app/data/reports`) para evitar path traversal.
+- **Re-ingesta**: antes de insertar nuevas filas, el worker marca con soft delete (`deleted_at`) las vulnerabilidades activas previas del mismo `scan_id`, para evitar duplicados al volver a cargar un informe o en reintentos.
+
+**Variables de entorno** (además de `CELERY_BROKER_URL` / `CELERY_RESULT_BACKEND` y `POSTGRES_*` en compose):
+
+- `REPORTS_DIR`: carpeta donde el API escribe los JSON (por defecto `/app/data/reports`).
+- `REPORTS_BASE_DIR`: carpeta base que el worker acepta al resolver rutas (por defecto `/app/data/reports`).
+
+**Código relevante**: `services/worker/tasks/tasks.py`, `services/worker/trivy_processing.py`; productor en `services/api-gateway/app/celery_client.py`. El mapeo Trivy ↔ BD está en el worker; modelos en `vulncentral_db`.
+
+**Humo Compose** (Linux/macOS, con Docker y `.env` listo): `bash scripts/smoke-compose.sh`
+
+**Pruebas del worker** (desde `services/worker`):
+
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+pytest -q
+```
+
+**Comandos Docker** (reconstruir API y worker tras cambios):
+
+```bash
+docker compose build api-gateway worker
+docker compose up -d api-gateway worker rabbitmq postgres
 ```
 
 ## Comandos que debe ejecutar el usuario

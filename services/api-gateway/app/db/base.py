@@ -1,11 +1,5 @@
-"""Base declarativa SQLAlchemy."""
+"""Re-export — canónico en paquete `vulncentral_db` (BD compartida API/worker)."""
 
-from sqlalchemy import BigInteger, Integer
-from sqlalchemy.orm import DeclarativeBase
+from vulncentral_db.base import Base, BigIntPk
 
-# SQLite autoincrementa correctamente con INTEGER; en PostgreSQL sigue siendo BIGINT.
-BigIntPk = BigInteger().with_variant(Integer(), "sqlite")
-
-
-class Base(DeclarativeBase):
-    """Base para todos los modelos ORM."""
+__all__ = ["Base", "BigIntPk"]

@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vulncentral-db"
+version = "0.1.0"
+description = "Modelos SQLAlchemy y utilidades de auth compartidos (API + worker, BD única)."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "sqlalchemy>=2.0.36,<3",
+    "bcrypt>=4.2.0,<5",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["vulncentral_db*"]

@@ -19,6 +19,9 @@ jobs:
       - name: Validar sintaxis (dev + prod)
         run: docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.example config
 
+      - name: Build imágenes Core API e Ingestion worker (contexto raíz)
+        run: docker compose --env-file .env.example build api-gateway worker
+
   api-gateway-tests:
     name: Tests API Gateway
     runs-on: ubuntu-latest
@@ -36,6 +39,27 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
+
+      - name: Pytest
+        run: pytest -q
+
+  worker-tests:
+    name: Tests Worker Celery
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/worker
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Pytest
         run: pytest -q

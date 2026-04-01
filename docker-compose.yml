@@ -81,9 +81,11 @@ services:
 
   api-gateway:
     build:
-      context: ./services/api-gateway
-      dockerfile: Dockerfile
-    container_name: vulncentral-api-gateway
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: vulncentral-core-api
+    labels:
+      com.vulncentral.service: core-api
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -121,9 +123,11 @@ services:
 
   worker:
     build:
-      context: ./services/worker
-      dockerfile: Dockerfile
-    container_name: vulncentral-worker
+      context: .
+      dockerfile: services/worker/Dockerfile
+    container_name: vulncentral-ingestion-worker
+    labels:
+      com.vulncentral.service: ingestion-worker
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}

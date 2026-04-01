@@ -12,11 +12,17 @@ WORKDIR /app
 
 RUN mkdir -p /app/data/reports && chown -R appuser:appgroup /app/data
 
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+COPY packages/vulncentral-db /opt/vulncentral-db
+RUN pip install --upgrade pip && pip install /opt/vulncentral-db
 
-COPY celery_app.py .
-COPY tasks ./tasks
+COPY services/worker/requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY services/worker/celery_app.py .
+COPY services/worker/db_session.py .
+COPY services/worker/trivy_schema.py .
+COPY services/worker/trivy_processing.py .
+COPY services/worker/tasks ./tasks
 
 USER appuser
 
