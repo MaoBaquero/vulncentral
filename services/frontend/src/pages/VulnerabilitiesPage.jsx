@@ -1,16 +1,95 @@
-import { useCallback, useEffect, useState } from "react";
-import { UC_VULNS } from "../rbac";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import TrivyUploadModal from "../components/TrivyUploadModal";
+import { syncAndGetVulnsContext } from "../flowContext";
+import { UC_SCANS, UC_VULNS } from "../rbac";
 import { useAuth } from "../context/AuthContext";
 import * as api from "../services/vulnerabilities";
 
 const SEVERITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 const STATUSES = ["OPEN", "IN_PROGRESS", "MITIGATED", "ACCEPTED"];
 
+function formatDateTime(value) {
+  if (value == null || value === "") return "—";
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return String(value);
+  }
+}
+
+function IconEye() {
+  return (
+    <svg className="vc-btn__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function IconPencil() {
+  return (
+    <svg className="vc-btn__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  );
+}
+
+function IconTrash() {
+  return (
+    <svg className="vc-btn__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
+}
+
+function IconPlus() {
+  return (
+    <svg className="vc-btn__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function IconUpload() {
+  return (
+    <svg className="vc-btn__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
+
+function IconArrowLeft() {
+  return (
+    <svg className="vc-btn__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <line x1="19" y1="12" x2="5" y2="12" />
+      <polyline points="12 19 5 12 12 5" />
+    </svg>
+  );
+}
+
 export default function VulnerabilitiesPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { token, can } = useAuth();
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
   const [modal, setModal] = useState(null);
+  const [trivyOpen, setTrivyOpen] = useState(false);
+  const [flowScanId, setFlowScanId] = useState(undefined);
+  const [flowProjectId, setFlowProjectId] = useState(undefined);
+
+  const routeKey = `${location.key}-${JSON.stringify(location.state ?? null)}`;
+  useEffect(() => {
+    const { scanId, projectId } = syncAndGetVulnsContext(location.state);
+    setFlowScanId(scanId);
+    setFlowProjectId(projectId);
+  }, [routeKey, location.state]);
 
   const load = useCallback(async () => {
     setError("");
@@ -26,6 +105,11 @@ export default function VulnerabilitiesPage() {
     load();
   }, [load]);
 
+  const filteredRows = useMemo(() => {
+    if (flowScanId == null) return rows;
+    return rows.filter((v) => v.scan_id === flowScanId);
+  }, [rows, flowScanId]);
+
   async function onDelete(id) {
     if (!window.confirm("¿Eliminar esta vulnerabilidad?")) return;
     try {
@@ -36,23 +120,58 @@ export default function VulnerabilitiesPage() {
     }
   }
 
+  function goBackToScans() {
+    const state = flowProjectId != null ? { projectId: flowProjectId } : undefined;
+    navigate("/scans", { state });
+  }
+
+  const canLoadTrivy = can(UC_SCANS, "u") && flowScanId != null;
+
   return (
     <div>
       <div className="vc-page-head">
         <h1>Vulnerabilidades</h1>
-        {can(UC_VULNS, "c") && (
-          <button type="button" className="vc-btn vc-btn--primary" onClick={() => setModal({ mode: "create" })}>
-            Crear
-          </button>
-        )}
+        <div className="vc-page-head__actions">
+          {canLoadTrivy && (
+            <button type="button" className="vc-btn vc-btn--primary" onClick={() => setTrivyOpen(true)}>
+              <span className="vc-btn__inner">
+                <IconUpload />
+                Cargar
+              </span>
+            </button>
+          )}
+          {can(UC_VULNS, "c") && (
+            <button
+              type="button"
+              className="vc-btn"
+              onClick={() =>
+                setModal({
+                  mode: "create",
+                  defaultScanId: flowScanId,
+                  scanIdReadOnly: flowScanId != null,
+                })
+              }
+            >
+              <span className="vc-btn__inner">
+                <IconPlus />
+                Crear
+              </span>
+            </button>
+          )}
+        </div>
       </div>
+      {flowScanId == null && (
+        <p className="vc-muted">Abra esta vista desde Escaneos (botón Vulnerabilidades) para asociar el contexto del escaneo sin usar la URL.</p>
+      )}
+      {flowScanId != null && (
+        <p className="vc-muted">Contexto de escaneo activo (no visible en la URL).</p>
+      )}
       {error && <div className="vc-banner vc-banner--error">{error}</div>}
       <div className="vc-table-wrap">
         <table className="vc-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Scan ID</th>
+              <th>Herramienta</th>
               <th>CVE</th>
               <th>Título</th>
               <th>Severidad</th>
@@ -61,10 +180,9 @@ export default function VulnerabilitiesPage() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((v) => (
+            {filteredRows.map((v) => (
               <tr key={v.id}>
-                <td>{v.id}</td>
-                <td>{v.scan_id}</td>
+                <td>{v.scan_tool ?? "—"}</td>
                 <td>{v.cve}</td>
                 <td className="vc-ellipsis">{v.title}</td>
                 <td>{v.severity}</td>
@@ -72,17 +190,26 @@ export default function VulnerabilitiesPage() {
                 <td className="vc-table__actions">
                   {can(UC_VULNS, "r") && (
                     <button type="button" className="vc-btn vc-btn--small" onClick={() => setModal({ mode: "view", row: v })}>
-                      Ver
+                      <span className="vc-btn__inner">
+                        <IconEye />
+                        Ver
+                      </span>
                     </button>
                   )}
                   {can(UC_VULNS, "u") && (
                     <button type="button" className="vc-btn vc-btn--small" onClick={() => setModal({ mode: "edit", row: v })}>
-                      Editar
+                      <span className="vc-btn__inner">
+                        <IconPencil />
+                        Editar
+                      </span>
                     </button>
                   )}
                   {can(UC_VULNS, "d") && (
                     <button type="button" className="vc-btn vc-btn--small vc-btn--danger" onClick={() => onDelete(v.id)}>
-                      Eliminar
+                      <span className="vc-btn__inner">
+                        <IconTrash />
+                        Eliminar
+                      </span>
                     </button>
                   )}
                 </td>
@@ -90,6 +217,14 @@ export default function VulnerabilitiesPage() {
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="vc-page-footer-back">
+        <button type="button" className="vc-btn" onClick={goBackToScans}>
+          <span className="vc-btn__inner">
+            <IconArrowLeft />
+            Atrás
+          </span>
+        </button>
       </div>
       {modal && (
         <VulnModal
@@ -102,13 +237,25 @@ export default function VulnerabilitiesPage() {
           }}
         />
       )}
+      {trivyOpen && flowScanId != null && (
+        <TrivyUploadModal
+          token={token}
+          scanId={flowScanId}
+          title={`Cargar informe Trivy — escaneo #${flowScanId}`}
+          onClose={() => setTrivyOpen(false)}
+          onDone={() => {
+            setTrivyOpen(false);
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }
 
 function VulnModal({ token, modal, onClose, onSaved }) {
-  const { mode, row } = modal;
-  const [scanId, setScanId] = useState(String(row?.scan_id || ""));
+  const { mode, row, defaultScanId, scanIdReadOnly } = modal;
+  const [scanId, setScanId] = useState(String(row?.scan_id ?? defaultScanId ?? ""));
   const [title, setTitle] = useState(row?.title || "");
   const [description, setDescription] = useState(row?.description || "");
   const [severity, setSeverity] = useState(row?.severity || "HIGH");
@@ -117,6 +264,8 @@ function VulnModal({ token, modal, onClose, onSaved }) {
   const [filePath, setFilePath] = useState(row?.file_path || "/");
   const [lineNumber, setLineNumber] = useState(String(row?.line_number ?? "0"));
   const [err, setErr] = useState("");
+
+  const readOnlyScan = mode === "create" && scanIdReadOnly;
 
   async function submit(e) {
     e.preventDefault();
@@ -146,12 +295,63 @@ function VulnModal({ token, modal, onClose, onSaved }) {
   if (mode === "view") {
     return (
       <div className="vc-modal-backdrop" role="presentation" onClick={onClose}>
-        <div className="vc-modal" role="dialog" onClick={(e) => e.stopPropagation()}>
-          <h2>Vulnerabilidad #{row.id}</h2>
-          <pre className="vc-pre">{JSON.stringify(row, null, 2)}</pre>
-          <button type="button" className="vc-btn" onClick={onClose}>
-            Cerrar
-          </button>
+        <div className="vc-modal vc-modal--wide" role="dialog" onClick={(e) => e.stopPropagation()} aria-labelledby="vuln-view-title">
+          <h2 id="vuln-view-title">Vulnerabilidad #{row.id}</h2>
+          <div className="vc-form">
+            <label className="vc-field">
+              <span>ID</span>
+              <input value={String(row.id)} readOnly className="vc-input-readonly" />
+            </label>
+            <label className="vc-field">
+              <span>Herramienta (escaneo)</span>
+              <input value={row.scan_tool ?? "—"} readOnly className="vc-input-readonly" />
+            </label>
+            <label className="vc-field">
+              <span>Escaneo (ID interno)</span>
+              <input value={String(row.scan_id)} readOnly className="vc-input-readonly" />
+            </label>
+            <label className="vc-field">
+              <span>Título</span>
+              <input value={row.title} readOnly className="vc-input-readonly" />
+            </label>
+            <label className="vc-field">
+              <span>Descripción</span>
+              <textarea value={row.description || ""} readOnly rows={3} className="vc-input-readonly" />
+            </label>
+            <label className="vc-field">
+              <span>Severidad</span>
+              <input value={row.severity} readOnly className="vc-input-readonly" />
+            </label>
+            <label className="vc-field">
+              <span>Estado</span>
+              <input value={row.status} readOnly className="vc-input-readonly" />
+            </label>
+            <label className="vc-field">
+              <span>CVE</span>
+              <input value={row.cve} readOnly className="vc-input-readonly" />
+            </label>
+            <label className="vc-field">
+              <span>Ruta fichero</span>
+              <input value={row.file_path} readOnly className="vc-input-readonly" />
+            </label>
+            <label className="vc-field">
+              <span>Línea</span>
+              <input value={String(row.line_number)} readOnly className="vc-input-readonly" />
+            </label>
+            <label className="vc-field">
+              <span>Creado</span>
+              <input value={formatDateTime(row.created_at)} readOnly className="vc-input-readonly" />
+            </label>
+            <label className="vc-field">
+              <span>Actualizado</span>
+              <input value={formatDateTime(row.updated_at)} readOnly className="vc-input-readonly" />
+            </label>
+          </div>
+          <div className="vc-form__actions">
+            <button type="button" className="vc-btn" onClick={onClose}>
+              Cerrar
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -165,7 +365,13 @@ function VulnModal({ token, modal, onClose, onSaved }) {
         <form onSubmit={submit} className="vc-form">
           <label className="vc-field">
             <span>Escaneo ID</span>
-            <input value={scanId} onChange={(e) => setScanId(e.target.value)} required />
+            <input
+              value={scanId}
+              onChange={(e) => setScanId(e.target.value)}
+              required
+              readOnly={readOnlyScan}
+              disabled={readOnlyScan}
+            />
           </label>
           <label className="vc-field">
             <span>Título</span>

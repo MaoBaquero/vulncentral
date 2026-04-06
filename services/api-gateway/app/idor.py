@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.errors_format import error_payload
 from app.models.project import Project
@@ -37,7 +37,9 @@ def get_project_for_read(db: Session, user: User, project_id: int) -> Project:
     from fastapi import HTTPException, status
 
     p = db.scalar(
-        select(Project).where(Project.id == project_id, Project.deleted_at.is_(None)),
+        select(Project)
+        .options(joinedload(Project.owner))
+        .where(Project.id == project_id, Project.deleted_at.is_(None)),
     )
     if p is None:
         raise HTTPException(
@@ -56,7 +58,9 @@ def get_scan_for_read(db: Session, user: User, scan_id: int) -> Scan:
     from fastapi import HTTPException, status
 
     s = db.scalar(
-        select(Scan).where(Scan.id == scan_id, Scan.deleted_at.is_(None)),
+        select(Scan)
+        .options(joinedload(Scan.project))
+        .where(Scan.id == scan_id, Scan.deleted_at.is_(None)),
     )
     if s is None:
         raise HTTPException(
@@ -80,7 +84,9 @@ def get_vulnerability_for_read(db: Session, user: User, vuln_id: int) -> Vulnera
     from fastapi import HTTPException, status
 
     v = db.scalar(
-        select(Vulnerability).where(
+        select(Vulnerability)
+        .options(joinedload(Vulnerability.scan))
+        .where(
             Vulnerability.id == vuln_id,
             Vulnerability.deleted_at.is_(None),
         ),

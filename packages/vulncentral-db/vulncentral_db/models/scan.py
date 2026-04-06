@@ -39,6 +39,12 @@ class Scan(Base, TimestampMixin, SoftDeleteMixin):
         foreign_keys="Vulnerability.scan_id",
     )
 
+    @property
+    def project_name(self) -> str | None:
+        """Nombre del proyecto (requiere relación `project` cargada o accesible)."""
+        proj = self.project
+        return proj.name if proj is not None else None
+
     @validates("tool")
     def _validate_tool(self, _key: str, value: str) -> str:
         if value is None:

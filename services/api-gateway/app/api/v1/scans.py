@@ -10,7 +10,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.audit import record_audit
 from app.celery_client import enqueue_ingest_trivy_json
@@ -37,7 +37,8 @@ def list_scans(
         if not vis:
             return []
         q = q.where(Scan.project_id.in_(vis))
-    return list(db.scalars(q.order_by(Scan.id)).all())
+    q = q.options(joinedload(Scan.project)).order_by(Scan.id)
+    return list(db.scalars(q).all())
 
 
 @router.post("", response_model=ScanRead, status_code=status.HTTP_201_CREATED)

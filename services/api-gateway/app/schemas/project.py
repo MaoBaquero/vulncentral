@@ -24,6 +24,7 @@ class ProjectRead(BaseModel):
 
     id: int
     user_id: int
+    owner_name: str | None = None
     name: str
     description: str | None
     created_at: datetime

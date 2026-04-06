@@ -39,6 +39,12 @@ class Project(Base, TimestampMixin, SoftDeleteMixin):
         foreign_keys="Scan.project_id",
     )
 
+    @property
+    def owner_name(self) -> str | None:
+        """Nombre del usuario propietario (requiere relación `owner` cargada o accesible)."""
+        owner = self.owner
+        return owner.name if owner is not None else None
+
     @validates("name")
     def _validate_name(self, _key: str, value: str) -> str:
         if value is None:

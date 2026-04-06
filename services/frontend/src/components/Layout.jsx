@@ -1,11 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import {
-  UC_LOGS,
-  UC_PROJECTS,
-  UC_SCANS,
-  UC_USERS,
-  UC_VULNS,
-} from "../rbac";
+import { UC_LOGS, UC_PROJECTS, UC_SCANS, UC_USERS } from "../rbac";
 import { useAuth } from "../context/AuthContext";
 
 const linkClass = ({ isActive }) =>
@@ -31,16 +25,6 @@ export default function Layout() {
           {can(UC_PROJECTS, "r") && (
             <NavLink to="/projects" className={linkClass}>
               Proyectos
-            </NavLink>
-          )}
-          {can(UC_SCANS, "r") && (
-            <NavLink to="/scans" className={linkClass}>
-              Escaneos
-            </NavLink>
-          )}
-          {can(UC_VULNS, "r") && (
-            <NavLink to="/vulnerabilities" className={linkClass}>
-              Vulnerabilidades
             </NavLink>
           )}
           {can(UC_LOGS, "r") && (

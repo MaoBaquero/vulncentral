@@ -24,6 +24,7 @@ class ScanRead(BaseModel):
 
     id: int
     project_id: int
+    project_name: str | None = None
     tool: str
     status: str
     created_at: datetime

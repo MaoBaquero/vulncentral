@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.audit import record_audit
 from app.deps import get_db
@@ -41,6 +41,7 @@ def list_vulnerabilities(
         return list(
             db.scalars(
                 select(Vulnerability)
+                .options(joinedload(Vulnerability.scan))
                 .where(Vulnerability.deleted_at.is_(None))
                 .order_by(Vulnerability.id),
             ).all(),
@@ -50,6 +51,7 @@ def list_vulnerabilities(
     return list(
         db.scalars(
             select(Vulnerability)
+            .options(joinedload(Vulnerability.scan))
             .join(Scan, Vulnerability.scan_id == Scan.id)
             .where(
                 Vulnerability.deleted_at.is_(None),

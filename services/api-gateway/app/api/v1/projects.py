@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.audit import record_audit
 from app.deps import get_db
@@ -42,7 +42,8 @@ def list_projects(
         if not vis:
             return []
         q = q.where(Project.id.in_(vis))
-    return list(db.scalars(q.order_by(Project.id)).all())
+    q = q.options(joinedload(Project.owner)).order_by(Project.id)
+    return list(db.scalars(q).all())
 
 
 @router.post("", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import logoUrl from "../assets/LogoVC-cuadrado.png";
 
 export default function LoginPage() {
   const { token, loading, login } = useAuth();
@@ -30,34 +31,38 @@ export default function LoginPage() {
 
   return (
     <div className="vc-login">
-      <form className="vc-login__card" onSubmit={onSubmit}>
-        <h1>VulnCentral</h1>
-        <p className="vc-muted">Inicie sesión con su email y contraseña</p>
-        {error && <div className="vc-banner vc-banner--error">{error}</div>}
-        <label className="vc-field">
-          <span>Email</span>
-          <input
-            type="email"
-            autoComplete="username"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </label>
-        <label className="vc-field">
-          <span>Contraseña</span>
-          <input
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </label>
-        <button type="submit" className="vc-btn vc-btn--primary" disabled={pending}>
-          {pending ? "Entrando…" : "Entrar"}
-        </button>
-      </form>
+      <div className="vc-login__column">
+        
+        <img src={logoUrl} alt="VulnCentral" width={300} className="vc-login__logo" />
+        <form className="vc-login__card" onSubmit={onSubmit}>
+  
+          <p className="vc-muted">Inicie sesión con su email y contraseña</p>
+          {error && <div className="vc-banner vc-banner--error">{error}</div>}
+          <label className="vc-field">
+            <span>Email</span>
+            <input
+              type="email"
+              autoComplete="username"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </label>
+          <label className="vc-field">
+            <span>Contraseña</span>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </label>
+          <button type="submit" className="vc-btn vc-btn--primary vc-login__submit" disabled={pending}>
+            {pending ? "Entrando…" : "Entrar"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
