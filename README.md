@@ -1,11 +1,47 @@
 # VulnCentral
 
-![Vulncentral](docs/LogoVC-cuadrado.png)
+<img src="docs/LogoVC-cuadrado.png" width="300">
 
 
-# 🏗️ Plataforma base (Fase 1): estructura de repositorio, Docker Compose, servicios mínimos sin lógica de negocio.
+---
+# Fundación Universitaria UNIMINUTO
+**Especialización en Ciberseguridad**
+**Materia: Seguridad Entornos Cloud DevOps**
 
-## Requisitos
+## 👥 Autores
+
+- Ing. Argel Ochoa Ronald David  
+- Ing. Baquero Soto Mauricio  
+- Ing. Buitrago Guiot Oscar Javier  
+- Ing. Estefania Naranjo Novoa  
+
+---
+
+## Descripción del aplicativo 
+
+### Nombre
+VulnCentral: Plataforma DevSecOps para la Centralización y Gestión de Vulnerabilidades
+
+### Descripción
+VulnCentral es una aplicación diseñada para centralizar, normalizar y gestionar hallazgos de vulnerabilidades provenientes de múltiples herramientas de seguridad (SAST, DAST, SCA y escaneo de contenedores). La solución permite a los equipos de seguridad visualizar, priorizar y dar seguimiento a vulnerabilidades desde una única plataforma.
+
+### Justificación
+En entornos DevSecOps modernos, las herramientas de seguridad generan reportes aislados, dificultando su análisis y gestión. VulnCentral resuelve este problema proporcionando una capa de agregación y gestión centralizada.
+
+### Objetivo
+Construir un sistema DevSecOps funcional con:
+- API Gateway
+- Worker asíncrono
+- Pipeline CI/CD
+- Seguridad integrada
+
+
+# DESCRIPCIÓN TÉCNICA DESARROLLO
+
+## 🏗️ Plataforma base (Fase 1) 
+**Estructura de repositorio, Docker Compose, servicios mínimos sin lógica de negocio.**
+
+### Requisitos
 
 
 | Herramienta                           | Comprobación                                 |
@@ -15,7 +51,7 @@
 | Node.js 20 (build local del frontend) | `node --version`                             |
 
 
-## Inicio rápido
+### Inicio rápido
 
 1. Copiar variables de entorno:
   ```bash
@@ -152,7 +188,8 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.
 
 ---
 
-# 🗄️ Plataforma base (Fase 2): Base de datos, modelos y Alembic
+## 🗄️ Plataforma base (Fase 2)
+**Base de datos, modelos y Alembic**
 
 ---
 
@@ -219,8 +256,6 @@ erDiagram
   use_cases ||--o{ permissions : use_case_id
 ```
 
-
-
 **Nota:** El diccionario no define `user_id` en `roles` ni tabla puente usuario–rol; no se añadirán tablas o FKs no listadas.
 
 ## Estructura de archivos propuesta
@@ -262,7 +297,7 @@ Desde `services/api-gateway` con Postgres accesible: `alembic upgrade head`.
 
 ---
 
-# Fase 3 — Autenticación JWT y RBAC (api-gateway)
+## 👥 Autenticación JWT y RBAC (api-gateway) (Fase 3) 
 
 
 **JWT y OAuth 2.0 suelen trabajar juntos, pero la diferencia principal es que JWT es un formato de datos (un token), mientras que OAuth 2.0 es un protocolo (un marco de trabajo), para entenderlo de forma sencilla: OAuth 2.0 es el proceso que sigues para obtener una llave, y JWT es el material y el diseño de la llave misma.**
@@ -281,7 +316,7 @@ En `.env` / `.env.example`: `JWT_SECRET` (obligatorio para login), `JWT_ALGORITH
 
 # Comandos que debe ejecutar el usuario (PostgreSQL + API)
 
-***Para actualizar a FASE 3***
+***Para actualizar a FASE 4***
 Desde la raíz del repo o con BD accesible según tu `.env`:
 
 ```bash
@@ -370,7 +405,9 @@ curl -s "http://localhost:8000/auth/me" -H "Authorization: Bearer $TOKEN"
 
 ---
 
-# Fase 4 — API Gateway: CRUD `/api/v1`, validaciones Pydantic, Trivy y límites
+## 🔵 API Gateway: CRUD (Fase 4) 
+
+**`/api/v1`, validaciones Pydantic, Trivy y límites**
 
 **Pydantic es la librería de validación de datos y gestión de configuraciones más popular para Python moderno. Su función principal es asegurar que los datos con los que trabaja tu programa tengan el formato y el tipo correctos, si FastAPI es el motor de tu API, Pydantic es el filtro de seguridad que revisa cada dato que entra y sale**
 
@@ -409,7 +446,9 @@ curl -s -X POST "http://localhost:8000/api/v1/scans/1/trivy-report" \
 
 ---
 
-# Fase 5 — Worker Celery: informe en volumen, cola y PostgreSQL
+## 🔵 Worker Celery (Fase 5) 
+
+**informe en volumen, cola y PostgreSQL**
 
 **Pasos realizados**
 
@@ -444,7 +483,7 @@ docker compose build api-gateway worker
 docker compose up -d api-gateway worker rabbitmq postgres
 ```
 
-# Fase 6 — API Gateway y RabbitMQ (integración con el worker)
+## 🔵 API Gateway y RabbitMQ (integración con el worker) (Fase 6) 
 
 **Pasos realizados (cierre)**
 
@@ -453,7 +492,10 @@ docker compose up -d api-gateway worker rabbitmq postgres
 - **Tarea Celery**: `vulncentral.ingest_trivy_json`, cola `vulncentral`. Productor: `services/api-gateway/app/celery_client.py` (`enqueue_ingest_trivy_json`); tras validar y escribir el archivo, el endpoint `POST /api/v1/scans/{scan_id}/trivy-report` responde **202** con `task_id` y `correlation_id`.
 - **Runtime**: en `.env` define **`CELERY_BROKER_URL`** (y si aplica **`CELERY_RESULT_BACKEND`**) alineados con el broker RabbitMQ del stack. El volumen Docker **`reports_data`** debe estar montado en **`/app/data/reports`** en **api-gateway** y **worker** (ya configurado en [`docker-compose.yml`](docker-compose.yml)).
 
-# Fase 7 — Frontend React (panel y consumo del Core API)
+
+## 🔵 Frontend React (Fase 7)
+
+**(panel y consumo del Core API** 
 
 **Pasos realizados**
 
@@ -493,7 +535,10 @@ docker compose build api-gateway
 docker compose up -d api-gateway
 ```
 
-# Fase 8 — Seguridad (OWASP: rate limit, auditoría, IDOR, MIME, logging)
+
+## 🔐 Endurecimiento de Seguridad (Fase 8)
+
+**WASP: rate limit, auditoría, IDOR, MIME, logging**
 
 **Controles añadidos**
 
