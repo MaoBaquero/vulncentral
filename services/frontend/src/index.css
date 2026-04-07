@@ -1,4 +1,5 @@
 :root {
+  --vc-sidebar-width: 220px;
   font-family: system-ui, "Segoe UI", Roboto, sans-serif;
   line-height: 1.5;
   color: #0f172a;
@@ -40,18 +41,24 @@ h1 {
 }
 
 .vc-sidebar {
-  width: 220px;
-  background: #0f172a;
-  color: #e2e8f0;
+  width: var(--vc-sidebar-width);
+  background: #F1F5F9;
+  color: #e8eef7;
   padding: 1rem 0;
   flex-shrink: 0;
 }
 
 .vc-sidebar__brand {
-  font-weight: 700;
   padding: 0 1rem 1rem;
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   margin-bottom: 0.75rem;
+}
+
+.vc-sidebar__brand-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 
 .vc-nav {
@@ -61,20 +68,35 @@ h1 {
 }
 
 .vc-nav__link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.5rem 1rem;
-  color: #94a3b8;
+  color: #242525;
   text-decoration: none;
   font-size: 0.95rem;
 }
 
 .vc-nav__link:hover {
-  color: #f8fafc;
-  background: #1e293b;
+  color: #fff;
+  background: rgba(15, 15, 15, 0.12);
 }
 
 .vc-nav__link--active {
-  color: #38bdf8;
-  background: #1e293b;
+  color: #fff;
+  background: #137cab;
+}
+
+.vc-nav__link-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ef7107;
+}
+
+.vc-nav__link--active .vc-nav__link-icon {
+  color: #ef7107;
 }
 
 .vc-main {
@@ -101,6 +123,48 @@ h1 {
 .vc-content {
   padding: 1.5rem;
   flex: 1;
+}
+
+.vc-main .vc-content {
+  padding-bottom: 5rem;
+}
+
+.vc-app-footer {
+  position: fixed;
+  bottom: 0;
+  left: var(--vc-sidebar-width);
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.82rem;
+  color: #475569;
+  background: #fff;
+  border-top: 1px solid #e2e8f0;
+}
+
+.vc-app-footer__about {
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: #137cab;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.vc-app-footer__about:hover {
+  color: #0f5f8a;
+}
+
+.vc-about-modal__indent {
+  margin: 0 0 0.75rem;
+  padding-left: 1rem;
 }
 
 .vc-loading {

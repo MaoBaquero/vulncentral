@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import logoUrl from "../assets/LogoVC-cuadrado.png";
+import logoUrl from "../assets/LogoVC-horizontal.png";
 
 export default function LoginPage() {
   const { token, loading, login } = useAuth();
@@ -33,7 +33,7 @@ export default function LoginPage() {
     <div className="vc-login">
       <div className="vc-login__column">
         
-        <img src={logoUrl} alt="VulnCentral" width={300} className="vc-login__logo" />
+        <img src={logoUrl} alt="VulnCentral" width={100} className="vc-login__logo" />
         <form className="vc-login__card" onSubmit={onSubmit}>
   
           <p className="vc-muted">Inicie sesión con su email y contraseña</p>

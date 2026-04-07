@@ -160,12 +160,16 @@ export default function VulnerabilitiesPage() {
           )}
         </div>
       </div>
+      
+      {/* 
       {flowScanId == null && (
         <p className="vc-muted">Abra esta vista desde Escaneos (botón Vulnerabilidades) para asociar el contexto del escaneo sin usar la URL.</p>
       )}
       {flowScanId != null && (
         <p className="vc-muted">Contexto de escaneo activo (no visible en la URL).</p>
       )}
+      */}
+
       {error && <div className="vc-banner vc-banner--error">{error}</div>}
       <div className="vc-table-wrap">
         <table className="vc-table">

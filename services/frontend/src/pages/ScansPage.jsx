@@ -142,9 +142,13 @@ export default function ScansPage() {
           )}
         </div>
       </div>
+      
+      {/* 
       {flowProjectId != null && (
         <p className="vc-muted">Filtrado por proyecto (contexto de navegación, no visible en la URL).</p>
       )}
+      */}
+
       {error && <div className="vc-banner vc-banner--error">{error}</div>}
       <div className="vc-table-wrap">
         <table className="vc-table">

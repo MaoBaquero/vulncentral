@@ -50,6 +50,12 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
         foreign_keys="AuditLog.user_id",
     )
 
+    @property
+    def role_name(self) -> str | None:
+        """Nombre del rol para serialización (cargar `role` con joinedload en listados)."""
+        r = self.role
+        return r.name if r is not None else None
+
     @validates("name")
     def _validate_name(self, _key: str, value: str) -> str:
         if value is None:

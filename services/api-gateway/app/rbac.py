@@ -98,3 +98,49 @@ def require_permission(use_case_name: str, action: PermAction):
         return user
 
     return _check
+
+
+def require_permission_any(use_case_name: str, actions: tuple[PermAction, ...]):
+    """Exige al menos uno de los permisos indicados sobre el caso de uso."""
+
+    def _check(
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
+        if user.role_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=error_payload("forbidden", "El usuario no tiene rol asignado."),
+            )
+        uc = db.scalar(
+            select(UseCase).where(
+                UseCase.name == use_case_name,
+                UseCase.deleted_at.is_(None),
+            ),
+        )
+        if uc is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=error_payload("forbidden", "Caso de uso no disponible."),
+            )
+        perm = db.scalar(
+            select(Permission).where(
+                Permission.role_id == user.role_id,
+                Permission.use_case_id == uc.id,
+                Permission.deleted_at.is_(None),
+            ),
+        )
+        allowed = perm is not None and any(
+            bool(getattr(perm, _PERM_ATTR[a])) for a in actions
+        )
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=error_payload(
+                    "forbidden",
+                    "No tiene permiso para realizar esta acción.",
+                ),
+            )
+        return user
+
+    return _check

@@ -64,6 +64,29 @@ def test_v1_users_list_admin(client: TestClient, admin_headers: dict[str, str]) 
     data = r.json()
     assert isinstance(data, list)
     assert any(u["email"] == "elmero@admon.com" for u in data)
+    elmero = next(u for u in data if u["email"] == "elmero@admon.com")
+    assert "role_name" in elmero
+    assert elmero["role_name"] == "Administrator"
+
+
+def test_v1_roles_requires_auth(client: TestClient) -> None:
+    r = client.get("/api/v1/roles")
+    assert r.status_code == 401
+
+
+def test_v1_roles_list_admin(client: TestClient, admin_headers: dict[str, str]) -> None:
+    r = client.get("/api/v1/roles", headers=admin_headers)
+    assert r.status_code == 200
+    data = r.json()
+    assert isinstance(data, list)
+    assert any(role["name"] == "Administrator" for role in data)
+    assert all("id" in role and "name" in role for role in data)
+
+
+def test_v1_roles_master_forbidden(client: TestClient, master_headers: dict[str, str]) -> None:
+    r = client.get("/api/v1/roles", headers=master_headers)
+    assert r.status_code == 403
+    assert r.json()["error"]["code"] == "forbidden"
 
 
 def test_v1_users_master_forbidden(client: TestClient, master_headers: dict[str, str]) -> None:

@@ -32,7 +32,9 @@ export default function LogsPage() {
   return (
     <div>
       <h1>Logs de auditoría</h1>
-      <p className="vc-muted">Registros de la tabla `audit_logs` (puede estar vacía si aún no hay eventos).</p>
+      
+      {/*  <p className="vc-muted">Registros de la tabla `audit_logs` (puede estar vacía si aún no hay eventos).</p> */}
+
       {error && <div className="vc-banner vc-banner--error">{error}</div>}
       <div className="vc-page-head vc-page-head--tools">
         <span className="vc-muted">

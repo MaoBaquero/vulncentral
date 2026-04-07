@@ -28,5 +28,6 @@ class UserRead(BaseModel):
     name: str
     email: str
     role_id: int | None
+    role_name: str | None = None
     created_at: datetime
     updated_at: datetime

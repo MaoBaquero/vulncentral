@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.audit import record_audit
 from app.deps import get_db
@@ -23,7 +23,9 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 def _get_user(db: Session, user_id: int) -> User | None:
     return db.scalar(
-        select(User).where(User.id == user_id, User.deleted_at.is_(None)),
+        select(User)
+        .options(joinedload(User.role))
+        .where(User.id == user_id, User.deleted_at.is_(None)),
     )
 
 
@@ -33,7 +35,14 @@ def list_users(
     db: Session = Depends(get_db),
 ) -> list[User]:
     return list(
-        db.scalars(select(User).where(User.deleted_at.is_(None)).order_by(User.id)).all(),
+        db.scalars(
+            select(User)
+            .options(joinedload(User.role))
+            .where(User.deleted_at.is_(None))
+            .order_by(User.id),
+        )
+        .unique()
+        .all(),
     )
 
 
