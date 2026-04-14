@@ -44,4 +44,4 @@ services:
           memory: 256M
     # Publicar el front en 8080 para no requerir privilegios de puerto 80 en el host.
     ports:
-      - "8080:80"
+      - "8080:8080"

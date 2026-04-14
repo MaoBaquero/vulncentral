@@ -1,0 +1,67 @@
+# PASO 1 — DevSecOps: mismos hooks que valida CI (job `security` en .github/workflows/ci.yml).
+# Instalación: pip install pre-commit && pre-commit install
+# Ejecución manual: pre-commit run --all-files
+minimum_pre_commit_version: "3.5.0"
+
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.24.2
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/semgrep/pre-commit
+    rev: v1.156.0
+    hooks:
+      # Reglas explícitas (más livianas que `auto`). En Windows local puede hacer falta UTF-8: ver README (PASO 1).
+      - id: semgrep
+        args:
+          - scan
+          - --config
+          - p/python
+          - --config
+          - p/ci
+          - --severity
+          - ERROR
+          - --error
+          - --disable-version-check
+          - --skip-unknown-extensions
+        pass_filenames: false
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.3
+    hooks:
+      - id: bandit
+        name: bandit (api-gateway + worker)
+        args:
+          - -r
+          - services/api-gateway
+          - services/worker
+          - -lll
+          - -q
+          - -f
+          - json
+        pass_filenames: false
+
+  # pip-audit (PyPA): sin flag "solo CRITICAL" como npm; falla si detecta cualquier CVE
+  # conocida en el árbol resuelto (más estricto que --audit-level=critical del frontend).
+  - repo: https://github.com/pypa/pip-audit
+    rev: v2.9.0
+    hooks:
+      - id: pip-audit
+        alias: pip-audit-api-gateway
+        name: pip-audit (api-gateway)
+        args: [-r, services/api-gateway/requirements.txt]
+        pass_filenames: false
+      - id: pip-audit
+        alias: pip-audit-worker
+        name: pip-audit (worker)
+        args: [-r, services/worker/requirements.txt]
+        pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: npm-audit-frontend
+        name: npm audit (frontend, critical)
+        entry: npm audit --audit-level=critical --prefix services/frontend
+        language: system
+        pass_filenames: false

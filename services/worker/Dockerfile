@@ -1,22 +1,34 @@
-FROM python:3.12-slim-bookworm
+# Multi-stage: venv con dependencias; imagen final mínima.
+FROM python:3.12-slim-bookworm AS builder
 
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
+ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-RUN groupadd --gid 1000 appgroup && \
-    useradd --uid 1000 --gid appgroup --shell /bin/bash --create-home appuser
+WORKDIR /build
 
-WORKDIR /app
-
-RUN mkdir -p /app/data/reports && chown -R appuser:appgroup /app/data
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 COPY packages/vulncentral-db /opt/vulncentral-db
 RUN pip install --upgrade pip && pip install /opt/vulncentral-db
 
 COPY services/worker/requirements.txt .
 RUN pip install -r requirements.txt
+
+FROM python:3.12-slim-bookworm
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/opt/venv/bin:$PATH"
+
+RUN groupadd --gid 1000 appgroup && \
+    useradd --uid 1000 --gid appgroup --shell /bin/bash --create-home appuser
+
+WORKDIR /app
+
+COPY --from=builder /opt/venv /opt/venv
+
+RUN mkdir -p /app/data/reports && chown -R appuser:appgroup /app/data
 
 COPY services/worker/celery_app.py .
 COPY services/worker/db_session.py .

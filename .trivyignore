@@ -1,0 +1,2 @@
+# CVEs o paquetes a ignorar temporalmente (documentar en README PASO 3).
+# Sintaxis: https://aquasecurity.github.io/trivy/latest/docs/configuration/filtering/

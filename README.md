@@ -63,7 +63,7 @@ Construir un sistema DevSecOps funcional con:
    docker compose up --build
   ```
 3. Comprobar servicios:
-  - Frontend: [http://localhost:8080](http://localhost:8080) (puerto por defecto `FRONTEND_PORT` en [`.env.example`](.env.example); en Windows el **80** a menudo está ocupado — si quieres 80, define `FRONTEND_PORT=80` en `.env` y asegúrate de que el puerto esté libre)
+  - Frontend: [http://localhost:8080](http://localhost:8080) (mapeo `${FRONTEND_PORT:-8080}:8080`: el **host** usa `FRONTEND_PORT` y el contenedor sirve Nginx en **8080** como usuario no root; ver PASO 3)
   - API: [http://localhost:8000/health](http://localhost:8000/health) (puerto por defecto `API_GATEWAY_PORT`)
   - RabbitMQ Management: [http://localhost:15672](http://localhost:15672) (usuario/clave según `.env`)
   - pgAdmin: [http://localhost:5050](http://localhost:5050) (puerto `PGADMIN_PORT`; email/clave `PGADMIN_DEFAULT_*` en `.env`). Al registrar el servidor usa host `**postgres**`, puerto **5432**, usuario y contraseña de PostgreSQL del `.env`.
@@ -80,7 +80,7 @@ Reduce exposición de puertos y ajusta límites:
 docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env up -d --build
 ```
 
-En el override, el frontend suele publicarse en el host en el puerto **8080** (`8080:80`). PostgreSQL y RabbitMQ dejan de exponer puertos al host; usa red interna o túnel según tu despliegue. **pgAdmin** queda asignado al perfil `dev-tools` y no arranca salvo que ejecutes `docker compose ... --profile dev-tools up`.
+En el override, el frontend suele publicarse en el host en el puerto **8080** (`8080:8080`; el contenedor escucha **8080** como usuario no root). PostgreSQL y RabbitMQ dejan de exponer puertos al host; usa red interna o túnel según tu despliegue. **pgAdmin** queda asignado al perfil `dev-tools` y no arranca salvo que ejecutes `docker compose ... --profile dev-tools up`.
 
 ## Volúmenes
 
@@ -185,6 +185,233 @@ npm run build
 docker compose --env-file .env.example config
 docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.example config
 ```
+
+## PASO 1 — DevSecOps (seguridad desde el desarrollador)
+
+**Objetivo:** impedir que secretos, patrones inseguros o dependencias vulnerables entren al repositorio mediante controles locales (`pre-commit`) y la misma batería en **GitHub Actions** (job `security`), alineado con [.cursor/prompts/Ajustes_Finales_Fase_1.md](.cursor/prompts/Ajustes_Finales_Fase_1.md).
+
+### Herramientas implementadas
+
+| Herramienta | Rol |
+| --- | --- |
+| [Gitleaks](https://github.com/gitleaks/gitleaks) | Detección de secretos en el árbol versionado |
+| [Semgrep](https://semgrep.dev/) | SAST con reglas `p/python` y `p/ci`; falla con severidad **ERROR** (equivalente operativo a HIGH/CRITICAL del prompt) |
+| [Bandit](https://github.com/PyCQA/bandit) | SAST Python; solo hallazgos de severidad **alta** (`-lll`) provocan fallo |
+| [pip-audit](https://pypi.org/project/pip-audit/) | SCA sobre `services/api-gateway/requirements.txt` y `services/worker/requirements.txt`; **cualquier CVE conocida** hace fallar el hook (no hay equivalente estable a “solo CRITICAL” como en npm; ver PASO 2) |
+| `npm audit` | SCA frontend con `--audit-level=critical` en `services/frontend` (fallo solo en **CRITICAL**; HIGH opcional según política del prompt) |
+
+Configuración: [`.pre-commit-config.yaml`](.pre-commit-config.yaml), exclusiones Semgrep en [`.semgrepignore`](.semgrepignore).
+
+### Pasos ejecutados (resumen)
+
+1. Añadir [`.pre-commit-config.yaml`](.pre-commit-config.yaml) con los hooks anteriores.
+2. Añadir job `security` en [`.github/workflows/ci.yml`](.github/workflows/ci.yml) que ejecuta `pre-commit run --all-files` (misma política que en local).
+3. Documentar secretos de GitHub y criterios de fallo en este README.
+
+### Comandos utilizados
+
+```bash
+# Instalar y activar hooks (una vez por clon)
+python -m pip install "pre-commit>=3.5"
+pre-commit install
+
+# Ejecutar toda la batería (equivalente a CI)
+# En Windows PowerShell, si Semgrep falla por codificación, usar UTF-8:
+$env:PYTHONUTF8 = "1"; $env:PYTHONIOENCODING = "utf-8"; pre-commit run --all-files
+```
+
+En Linux/macOS suele bastar `pre-commit run --all-files` (locale UTF-8 por defecto).
+
+### Evidencias esperadas
+
+- `pre-commit run --all-files` termina con código **0** cuando no hay hallazgos que violen la política.
+- Gitleaks **rechaza** un commit de prueba si se introduce un patrón tipo clave API en un archivo trackeado (puedes revertir al instante).
+- En GitHub, el job **`security`** aparece en verde en PRs/push a `main`/`master`.
+
+### Gestión de secretos (GitHub)
+
+| Nombre | Uso | Obligatorio crear en el repo |
+| --- | --- | --- |
+| `GITHUB_TOKEN` | Proporcionado automáticamente en Actions | No |
+| `API_KEYS` / otros | Solo si un workflow llama APIs externas o despliegues que lo requieran; referencia en YAML con `${{ secrets.NOMBRE }}` | Solo si aplica |
+
+Nunca subas valores reales: usa **GitHub → Settings → Secrets and variables → Actions** y documenta aquí solo los **nombres** y el propósito.
+
+### Problemas comunes y soluciones
+
+| Síntoma | Causa probable | Qué hacer |
+| --- | --- | --- |
+| Semgrep: `UnicodeEncodeError` / `charmap` en Windows | Consola o Python en cp1252 al resolver reglas remotas | Exportar `PYTHONUTF8=1` y `PYTHONIOENCODING=utf-8` antes de `pre-commit` (el job `security` en CI ya las define). |
+| `npm audit` sin `node` en PATH | Ejecutar hook fuera de entorno con Node | Instala Node 20 o usa el mismo comando tras `setup-node` como en CI. |
+| Gitleaks falla en archivos de ejemplo | Patrones que parecen secretos | Ajusta [`.gitleaksignore`](.gitleaksignore) si el equipo acota exclusiones documentadas. |
+| Semgrep/Bandit demasiado ruidosos | Reglas o código de prueba | Afinar `.semgrepignore`, exclusiones Bandit o reglas en un `semgrep` dedicado (sin relajar sin consenso). |
+
+`.env` debe permanecer fuera de Git: ya está listado en [`.gitignore`](.gitignore).
+
+## PASO 2 — DevSecOps (CI/CD con seguridad)
+
+**Nota de nomenclatura:** esto es el **PASO 2** del plan DevSecOps (pipeline y políticas en CI). No confundir con la sección **Plataforma base (Fase 2)** más abajo en este README (base de datos y Alembic): es otro hilo del proyecto.
+
+**Objetivo:** que cada **push** y **pull request** a `main`/`master` ejecute **build** del proyecto y controles **SAST/SCA** en GitHub Actions, con reglas de fallo documentadas, según [.cursor/prompts/Ajustes_Finales_Fase_2.md](.cursor/prompts/Ajustes_Finales_Fase_2.md).
+
+### Arquitectura del pipeline CI/CD
+
+Los jobs del workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) se disparan en paralelo (salvo que en el futuro se encadenen con `needs:`). El **build** y la **seguridad** no duplican SAST/SCA en YAML aparte: el job `security` ejecuta la misma batería que en local vía `pre-commit` (definida en [PASO 1](#paso-1--devsecops-seguridad-desde-el-desarrollador)).
+
+```mermaid
+flowchart LR
+  trigger[push_o_PR]
+  subgraph parallel [Jobs_en_paralelo]
+    sec[security_precommit]
+    comp[compose_validate_build]
+    api[api_gateway_tests]
+    wrk[worker_tests]
+    fe[frontend_build]
+  end
+  trigger --> parallel
+```
+
+### Herramientas en CI (SAST y SCA) y justificación breve
+
+| Capa | Herramienta | Por qué en CI |
+| --- | --- | --- |
+| SAST multi-lenguaje | Semgrep | Reglas públicas `p/python` y `p/ci`; umbral de fallo alineado con severidad **ERROR** en hook |
+| SAST Python | Bandit | Análisis estático centrado en patrones de riesgo en `services/api-gateway` y `services/worker` |
+| SCA Python | pip-audit | Auditoría de dependencias declaradas frente a bases de vulnerabilidades (PyPI/OSV) |
+| SCA Node | npm audit | Alineado con criterio “fallar en **CRITICAL**” (`--audit-level=critical`) |
+
+### Build automático en CI (qué cuenta como “build”)
+
+- **Imágenes Docker** de backend: job `compose-validate` ejecuta `docker compose ... build api-gateway worker` con [`.env.example`](.env.example).
+- **Frontend producción**: job `frontend-build` ejecuta `npm ci` y `npm run build` (Vite) en `services/frontend`.
+- **Tests** (calidad de build lógico): `pytest` en API gateway y worker.
+
+### Regla de fallo por CVEs (críticos y política Python)
+
+| Origen | Comportamiento |
+| --- | --- |
+| **npm** (`services/frontend`) | El pipeline falla si `npm audit` reporta vulnerabilidades **CRITICAL** (`--audit-level=critical`). |
+| **pip-audit** (Python) | La versión usada en [`.pre-commit-config.yaml`](.pre-commit-config.yaml) **no expone** un filtro “solo severidad CRITICAL”. Si encuentra **cualquier** CVE conocida para una dependencia resuelta, el proceso termina con **código distinto de cero** (política más estricta que la del frontend). Mitigar con versiones corregidas o, como último recurso, `--ignore-vuln` documentado en el equipo. |
+
+### Pasos ejecutados (resumen)
+
+1. Reutilizar el job `security` y [`.pre-commit-config.yaml`](.pre-commit-config.yaml) definidos en PASO 1 (sin duplicar Semgrep/Bandit/pip-audit/npm en pasos sueltos del YAML salvo requisito académico explícito).
+2. Mantener jobs de build y tests ya existentes en [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+3. Documentar esta sección (PASO 2) y la asimetría pip-audit vs npm en el README.
+
+### Comandos útiles (validación local acorde a CI)
+
+```bash
+# Equivale a la parte “DevSecOps” del job security en Actions
+$env:PYTHONUTF8 = "1"; $env:PYTHONIOENCODING = "utf-8"; pre-commit run --all-files   # PowerShell
+# docker compose build (como en CI)
+docker compose --env-file .env.example build api-gateway worker
+```
+
+### Evidencias esperadas en CI
+
+- En la pestaña **Actions** del repositorio: workflow **CI** en verde para el commit.
+- Logs del job **`security`**: líneas de cada hook de `pre-commit` (Gitleaks, Semgrep, Bandit, pip-audit, npm audit) sin fallo.
+- Logs de **`compose-validate`** / **`frontend-build`**: build completado sin error.
+
+### Cómo comprobar fallo ante vulnerabilidad crítica (frontend)
+
+Introducir una dependencia vulnerable de prueba en `services/frontend` (rama temporal), ejecutar CI o `npm audit --audit-level=critical --prefix services/frontend` y comprobar **exit code ≠ 0**; revertir el cambio después.
+
+### GitHub Secrets en esta fase
+
+Para SAST/SCA y builds actuales **no se requieren** secretos adicionales: el contenido del repo y `GITHUB_TOKEN` bastan. Añade secretos solo si añades pasos de despliegue o APIs externas (referencia con `${{ secrets.NOMBRE }}` sin imprimir valores en logs).
+
+### Fail-fast y jobs paralelos
+
+Cada job falla por sí mismo si un paso devuelve error. GitHub **no cancela** automáticamente el resto de jobs en paralelo cuando uno falla (comportamiento distinto a `fail-fast` de una matriz). La “detención” efectiva es: el workflow se marca como **fallido** y el PR no debería fusionarse.
+
+### Problemas comunes (PASO 2)
+
+| Síntoma | Qué revisar |
+| --- | --- |
+| `security` verde pero vulnerabilidad conocida en Python | pip-audit puede no estar resolviendo el mismo subconjunto que tu entorno local; revisa `requirements.txt` y versiones pinadas. |
+| `security` rojo por pip-audit, no por npm | Es esperable: la política Python es **cualquier CVE** reportada por la herramienta, no solo CRITICAL. |
+| Builds Docker fallan en CI | Credenciales no deben ir en Dockerfile; revisa contexto de build y [`.env.example`](.env.example). |
+
+## PASO 3 — DevSecOps (contenedores seguros)
+
+**Nota de nomenclatura:** es el **PASO 3** del plan DevSecOps (Dockerfiles endurecidos + **Trivy** en CI). No confundir con otras secciones tituladas “Fase …” del README (p. ej. base de datos). Especificación: [.cursor/prompts/Ajustes_Finales_Fase_3.md](.cursor/prompts/Ajustes_Finales_Fase_3.md).
+
+### Objetivo
+
+Imágenes **construidas en el repositorio** (`api-gateway`, `worker`, `frontend`) con buenas prácticas (multi-stage donde aplica, **sin `latest`**, usuario **no root** en runtime) y **escaneo Trivy** en GitHub Actions que **falla** si aparecen vulnerabilidades **CRITICAL** o **HIGH**.
+
+### Alcance del escaneo Trivy
+
+- **Incluido en CI:** solo las tres imágenes construidas desde los Dockerfiles del monorepo (tags `vulncentral-ci:*` en el job `trivy-images`).
+- **Fuera de alcance por defecto:** imágenes de terceros referenciadas en Compose (PostgreSQL, RabbitMQ, pgAdmin, etc.). Escanearlas implicaría otra política y más tiempo de job.
+
+### Herramientas implementadas
+
+| Herramienta | Rol |
+| --- | --- |
+| [Trivy](https://github.com/aquasecurity/trivy) | Escaneo de vulnerabilidades en imágenes OCI construidas en CI |
+| Dockerfiles multi-stage | `services/api-gateway/Dockerfile`, `services/worker/Dockerfile`: venv en etapa `builder`, copia a imagen final |
+| Nginx no root | `services/frontend/Dockerfile` + [services/frontend/nginx.main.conf](services/frontend/nginx.main.conf): escucha **8080**, `USER nginx` |
+| [.trivyignore](.trivyignore) | Plantilla para exclusiones documentadas (CVE sin fix, falsos positivos) |
+
+### Pasos ejecutados (resumen)
+
+1. Endurecer Dockerfiles (multi-stage Python; frontend con Nginx en 8080 y usuario `nginx`).
+2. Ajustar mapeos de puertos en [docker-compose.yml](docker-compose.yml), [docker-compose.prod.yml](docker-compose.prod.yml) y manifiestos K8s del frontend ([orchestration/k8s/deployments/frontend.yaml](orchestration/k8s/deployments/frontend.yaml), [orchestration/k8s/services/frontend.yaml](orchestration/k8s/services/frontend.yaml)).
+3. Añadir job `trivy-images` en [.github/workflows/ci.yml](.github/workflows/ci.yml) con [aquasecurity/trivy-action](https://github.com/aquasecurity/trivy-action) (`severity: CRITICAL,HIGH`, `exit-code: 1`).
+
+### Comandos utilizados (local)
+
+```bash
+# Build alineado con CI (contextos como en el workflow)
+docker build -t vulncentral-ci:api-gateway -f services/api-gateway/Dockerfile .
+docker build -t vulncentral-ci:worker -f services/worker/Dockerfile .
+docker build -t vulncentral-ci:frontend --build-arg VITE_API_BASE_URL=http://localhost:8000 -f services/frontend/Dockerfile services/frontend
+
+# Trivy local (requiere binario o contenedor aquasec/trivy)
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity HIGH,CRITICAL --exit-code 1 vulncentral-ci:api-gateway
+```
+
+En Windows con Docker Desktop, el socket puede variar; en CI el job usa el entorno estándar de GitHub.
+
+### Evidencias esperadas
+
+- En **Actions**, el job **`trivy-images`** en verde: tres pasos Trivy sin hallazgos HIGH/CRITICAL (o tabla vacía según versión).
+- `docker compose up` con frontend **healthy** en `http://localhost:${FRONTEND_PORT:-8080}` (health interno en `:8080` del contenedor).
+
+### Problemas comunes y soluciones
+
+| Síntoma | Qué hacer |
+| --- | --- |
+| Trivy falla por CVE en imagen base sin parche | Actualizar tag de base (`python:3.12-slim-bookworm`, `nginx:1.27-alpine`, etc.) o documentar excepción puntual en `.trivyignore` con justificación. |
+| Frontend no arranca tras el cambio | Comprobar mapeo `HOST:8080` y que ningún proxy asuma puerto 80 **dentro** del contenedor. |
+| Confusión Trivy “ingesta JSON” vs “scan CI” | La **ingesta** de informes Trivy en la app es otro flujo (API/worker). El **scan** de PASO 3 solo valida imágenes en build. |
+
+## Integración continua (GitHub Actions)
+
+El workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) ejecuta **integración continua** en cada **push** y en cada **pull request** hacia las ramas `main` o `master`. Si algún job falla, el workflow falla (en PRs el check aparece como no superado).
+
+### Jobs (se ejecutan en paralelo)
+
+| Job | Objetivo |
+| --- | --- |
+| `security` | Misma batería que `pre-commit` (Gitleaks, Semgrep, Bandit, pip-audit, npm audit) vía `pre-commit run --all-files` |
+| `compose-validate` | Validar Docker Compose y construir imágenes de `api-gateway` y `worker` |
+| `trivy-images` | Construir las tres imágenes propias y escanearlas con Trivy (**CRITICAL** y **HIGH** → fallo del job) |
+| `api-gateway-tests` | Tests de Python del servicio API Gateway (`pytest`) |
+| `worker-tests` | Tests de Python del worker Celery (`pytest`) |
+| `frontend-build` | Instalación con `npm ci` y build de producción con Vite |
+
+### Qué hace cada job
+
+- **`security`**: Ubuntu, Python **3.12**, Node **20** (caché npm del frontend), instala `pre-commit` y ejecuta `pre-commit run --all-files` con `PYTHONUTF8=1` y `PYTHONIOENCODING=utf-8` (misma política que en máquinas locales con UTF-8).
+- **`compose-validate`** (Ubuntu, Docker Compose): clona el repo; valida la sintaxis con `docker compose --env-file .env.example config`; valida la fusión dev + prod con `docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.example config`; construye las imágenes `api-gateway` y `worker` con `docker compose ... build api-gateway worker` (contexto en la raíz del repositorio).
+- **`trivy-images`**: construye `vulncentral-ci:api-gateway`, `vulncentral-ci:worker` y `vulncentral-ci:frontend` con los mismos `docker build` que en el README (PASO 3) y ejecuta **Trivy** (`aquasecurity/trivy-action@0.28.0`) con `severity: CRITICAL,HIGH` y `exit-code: 1` por imagen.
+- **`api-gateway-tests`**: directorio `services/api-gateway`, Python **3.12**, `pip install -r requirements-dev.txt`, luego `pytest -q`.
+- **`worker-tests`**: directorio `services/worker`, Python **3.12**, `pip install -r requirements.txt -r requirements-dev.txt`, luego `pytest -q`.
+- **`frontend-build`**: directorio `services/frontend`, Node **20** (caché de npm con `package-lock.json`), `npm ci` y `npm run build` con `VITE_API_BASE_URL=http://localhost:8000` para el entorno de CI.
 
 ---
 

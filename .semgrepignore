@@ -1,0 +1,10 @@
+# Rutas que Semgrep no debe analizar (monorepo / artefactos).
+node_modules/
+dist/
+build/
+coverage/
+.venv/
+venv/
+__pycache__/
+*.min.js
+packages/*/migrations/
