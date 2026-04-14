@@ -340,7 +340,7 @@ Cada job falla por sí mismo si un paso devuelve error. GitHub **no cancela** au
 
 ### Objetivo
 
-Imágenes **construidas en el repositorio** (`api-gateway`, `worker`, `frontend`) con buenas prácticas (multi-stage donde aplica, **sin `latest`**, usuario **no root** en runtime) y **escaneo Trivy** en GitHub Actions que **falla** si aparecen vulnerabilidades **CRITICAL** o **HIGH**.
+Imágenes **construidas en el repositorio** (`api-gateway`, `worker`, `frontend`) con buenas prácticas (multi-stage donde aplica, **sin `latest`**, usuario **no root** en runtime), **actualización de paquetes del SO** en build (`apt-get upgrade` en Debian, `apk upgrade` en Alpine) y **escaneo Trivy** en GitHub Actions: se consideran **HIGH/CRITICAL** con **`ignore-unfixed: true`** (el job falla si hay hallazgos **con parche disponible** que la imagen aún no incorpora; se omiten CVE sin fix en el distro, p. ej. `will_not_fix`).
 
 ### Alcance del escaneo Trivy
 
@@ -360,7 +360,7 @@ Imágenes **construidas en el repositorio** (`api-gateway`, `worker`, `frontend`
 
 1. Endurecer Dockerfiles (multi-stage Python; frontend con Nginx en 8080 y usuario `nginx`).
 2. Ajustar mapeos de puertos en [docker-compose.yml](docker-compose.yml), [docker-compose.prod.yml](docker-compose.prod.yml) y manifiestos K8s del frontend ([orchestration/k8s/deployments/frontend.yaml](orchestration/k8s/deployments/frontend.yaml), [orchestration/k8s/services/frontend.yaml](orchestration/k8s/services/frontend.yaml)).
-3. Añadir job `trivy-images` en [.github/workflows/ci.yml](.github/workflows/ci.yml) con [aquasecurity/trivy-action](https://github.com/aquasecurity/trivy-action) (`severity: CRITICAL,HIGH`, `exit-code: 1`).
+3. Añadir job `trivy-images` en [.github/workflows/ci.yml](.github/workflows/ci.yml) con [aquasecurity/trivy-action](https://github.com/aquasecurity/trivy-action) (`severity: CRITICAL,HIGH`, `exit-code: 1`, `ignore-unfixed: true`).
 
 ### Comandos utilizados (local)
 
@@ -371,14 +371,14 @@ docker build -t vulncentral-ci:worker -f services/worker/Dockerfile .
 docker build -t vulncentral-ci:frontend --build-arg VITE_API_BASE_URL=http://localhost:8000 -f services/frontend/Dockerfile services/frontend
 
 # Trivy local (requiere binario o contenedor aquasec/trivy)
-docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity HIGH,CRITICAL --exit-code 1 vulncentral-ci:api-gateway
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 vulncentral-ci:api-gateway
 ```
 
 En Windows con Docker Desktop, el socket puede variar; en CI el job usa el entorno estándar de GitHub.
 
 ### Evidencias esperadas
 
-- En **Actions**, el job **`trivy-images`** en verde: tres pasos Trivy sin hallazgos HIGH/CRITICAL (o tabla vacía según versión).
+- En **Actions**, el job **`trivy-images`** en verde: tres pasos Trivy sin hallazgos HIGH/CRITICAL **con fix pendiente de aplicar** (según `ignore-unfixed`).
 - `docker compose up` con frontend **healthy** en `http://localhost:${FRONTEND_PORT:-8080}` (health interno en `:8080` del contenedor).
 
 ### Problemas comunes y soluciones
@@ -399,7 +399,7 @@ El workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) ejecuta **int
 | --- | --- |
 | `security` | Misma batería que `pre-commit` (Gitleaks, Semgrep, Bandit, pip-audit, npm audit) vía `pre-commit run --all-files` |
 | `compose-validate` | Validar Docker Compose y construir imágenes de `api-gateway` y `worker` |
-| `trivy-images` | Construir las tres imágenes propias y escanearlas con Trivy (**CRITICAL** y **HIGH** → fallo del job) |
+| `trivy-images` | Construir las tres imágenes propias y escanearlas con Trivy (**CRITICAL** y **HIGH**, `ignore-unfixed`) |
 | `api-gateway-tests` | Tests de Python del servicio API Gateway (`pytest`) |
 | `worker-tests` | Tests de Python del worker Celery (`pytest`) |
 | `frontend-build` | Instalación con `npm ci` y build de producción con Vite |
@@ -408,7 +408,7 @@ El workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) ejecuta **int
 
 - **`security`**: Ubuntu, Python **3.12**, Node **20** (caché npm del frontend), instala `pre-commit` y ejecuta `pre-commit run --all-files` con `PYTHONUTF8=1` y `PYTHONIOENCODING=utf-8` (misma política que en máquinas locales con UTF-8).
 - **`compose-validate`** (Ubuntu, Docker Compose): clona el repo; valida la sintaxis con `docker compose --env-file .env.example config`; valida la fusión dev + prod con `docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.example config`; construye las imágenes `api-gateway` y `worker` con `docker compose ... build api-gateway worker` (contexto en la raíz del repositorio).
-- **`trivy-images`**: construye `vulncentral-ci:api-gateway`, `vulncentral-ci:worker` y `vulncentral-ci:frontend` con los mismos `docker build` que en el README (PASO 3) y ejecuta **Trivy** (`aquasecurity/trivy-action@v0.35.0`) con `severity: CRITICAL,HIGH` y `exit-code: 1` por imagen.
+- **`trivy-images`**: construye `vulncentral-ci:api-gateway`, `vulncentral-ci:worker` y `vulncentral-ci:frontend` con los mismos `docker build` que en el README (PASO 3) y ejecuta **Trivy** (`aquasecurity/trivy-action@v0.35.0`) con `severity: CRITICAL,HIGH`, `exit-code: 1` e `ignore-unfixed: true` por imagen.
 - **`api-gateway-tests`**: directorio `services/api-gateway`, Python **3.12**, `pip install -r requirements-dev.txt`, luego `pytest -q`.
 - **`worker-tests`**: directorio `services/worker`, Python **3.12**, `pip install -r requirements.txt -r requirements-dev.txt`, luego `pytest -q`.
 - **`frontend-build`**: directorio `services/frontend`, Node **20** (caché de npm con `package-lock.json`), `npm ci` y `npm run build` con `VITE_API_BASE_URL=http://localhost:8000` para el entorno de CI.
