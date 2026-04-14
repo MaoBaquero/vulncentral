@@ -36,6 +36,9 @@ Construir un sistema DevSecOps funcional con:
 - Seguridad integrada
 
 
+# [GUIA DE INICIO RAPIDO](docs/Inicio_Rapido.md)
+
+
 # DESCRIPCIÓN TÉCNICA DESARROLLO
 
 ## 🏗️ Plataforma base (Fase 1) 
