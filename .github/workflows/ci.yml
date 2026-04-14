@@ -62,7 +62,7 @@ jobs:
           docker build -t vulncentral-ci:frontend --build-arg VITE_API_BASE_URL=http://localhost:8000 -f services/frontend/Dockerfile services/frontend
 
       - name: Trivy api-gateway
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           scan-type: image
           image-ref: vulncentral-ci:api-gateway
@@ -71,7 +71,7 @@ jobs:
           format: table
 
       - name: Trivy worker
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           scan-type: image
           image-ref: vulncentral-ci:worker
@@ -80,7 +80,7 @@ jobs:
           format: table
 
       - name: Trivy frontend
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           scan-type: image
           image-ref: vulncentral-ci:frontend
