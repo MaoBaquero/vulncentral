@@ -1,6 +1,24 @@
 # Requerimientos técnicos para despliegue en la nube (VulnCentral)
 
-Documento orientado a planificar el despliegue de **VulnCentral** en un proveedor cloud genérico (IaaS, PaaS o Kubernetes), alineado con la arquitectura descrita en el README: **frontend (SPA + Nginx)**, **API Gateway (FastAPI)**, **worker (Celery)**, **PostgreSQL**, **RabbitMQ** y **almacenamiento compartido** para informes JSON antes de la ingesta.
+Documento orientado a planificar el despliegue de **VulnCentral** en un proveedor cloud genérico (IaaS, PaaS o Kubernetes), alineado con la arquitectura del README: **frontend (SPA + Nginx)**, **API Gateway (FastAPI)**, **worker (Celery)**, más **PostgreSQL**, **RabbitMQ** y **almacenamiento compartido** para informes JSON antes de la ingesta.
+
+En `docker-compose.yml` aparecen **seis** servicios (`postgres`, `pgadmin`, `rabbitmq`, `api-gateway`, `worker`, `frontend`). En un despliegue de producción típico **solo tres** son cargas de trabajo que el equipo construye y opera como contenedores o jobs propios:
+
+| Rol | Servicio en Compose | En producción optimizada |
+|-----|---------------------|---------------------------|
+| API | `api-gateway` | Contenedor / PaaS / pod propio |
+| Worker | `worker` | Contenedor / PaaS / pod propio |
+| Frontend | `frontend` | Contenedor / static hosting propio |
+
+Los otros tres se cubren con **servicios gestionados** (o equivalente del proveedor), sin levantar esos contenedores en el clúster:
+
+| Rol | Servicio en Compose | En producción optimizada |
+|-----|---------------------|---------------------------|
+| Base de datos | `postgres` | PostgreSQL gestionado (RDS, Cloud SQL, Azure Database for PostgreSQL, etc.) |
+| Cola AMQP | `rabbitmq` | Broker gestionado compatible AMQP (Amazon MQ for RabbitMQ, CloudAMQP, etc.) o alternativa acordada con el código Celery |
+| Consola SQL (solo desarrollo) | `pgadmin` | **No** es requisito de producción; sustituir por consola del proveedor, cliente SQL vía VPN, o perfil `dev-tools` solo en entornos no productivos |
+
+El cómputo y los health checks de las secciones siguientes se centran en esos **tres** despliegues propios; el dimensionamiento de BD y broker es un **SKU aparte** en el catálogo del proveedor.
 
 ---
 
@@ -9,10 +27,10 @@ Documento orientado a planificar el despliegue de **VulnCentral** en un proveedo
 | ID | Requisito | Obligatorio | Notas |
 |----|-----------|-------------|--------|
 | C1 | Motor de contenedores o equivalente (Docker en VM, Kubernetes, ECS, Cloud Run con multi-container, etc.) | Sí | El repo se entrega con `Dockerfile` por servicio y `docker-compose.yml`. |
-| C2 | Capacidad de ejecutar **al menos 5 procesos** (Postgres, RabbitMQ, API, worker, frontend) o su equivalente gestionado | Sí | En `docker-compose.prod.yml` los límites de memoria orientativos suman del orden de **~3 GiB** (Postgres 1 G, Rabbit 768 M, API 512 M, worker 512 M, frontend 256 M). El plan real debe incluir **RAM y CPU** suficientes más overhead del SO/orquestador. |
+| C2 | Capacidad de ejecutar **al menos 3 procesos** de aplicación (API, worker, frontend) o su equivalente (p. ej. front en CDN y solo API+worker en contenedores) | Sí | Con los límites orientativos de `docker-compose.prod.yml` solo para esos tres servicios, la suma de memoria límite es del orden de **~1,25 GiB** (API 512 M, worker 512 M, frontend 256 M). El plan debe sumar **RAM y CPU** suficientes más overhead del SO u orquestador. La base PostgreSQL y RabbitMQ gestionados tienen su propia facturación y tamaño de instancia; no entran en ese ~1,25 GiB. |
 | C3 | Imágenes construibles desde el repositorio (`services/api-gateway`, `services/worker`, `services/frontend`; contexto raíz donde aplique) | Sí | Coherente con los `build.context` del compose. |
 | C4 | Política de **reinicio** (restart) o salud del orquestador | Recomendado | `docker-compose.prod.yml` usa `restart: always` en servicios críticos. |
-| C5 | **Health checks** HTTP para API y frontend; comprobaciones para Postgres, RabbitMQ y Celery según el entorno | Recomendado | El compose de desarrollo define healthchecks; en cloud conviene equivalentes para despliegues sin downtime. |
+| C5 | **Health checks** HTTP para API y frontend; comprobaciones para Celery en el worker según el entorno | Recomendado | El compose de desarrollo define healthchecks para API y front; el worker usa `celery inspect ping`. En cloud conviene equivalentes para despliegues sin downtime. Las comprobaciones de Postgres y RabbitMQ en compose no aplican si son servicios gestionados: el proveedor expone métricas o health del servicio. |
 
 ---
 
@@ -23,30 +41,30 @@ Documento orientado a planificar el despliegue de **VulnCentral** en un proveedo
 | N1 | **Tráfico HTTPS** desde el navegador hacia el frontend (y preferiblemente hacia el API) | Sí (producción) | TLS vía balanceador, proxy inverso o certificados gestionados (ACM, Let’s Encrypt, etc.). |
 | N2 | URL pública o accesible para el **SPA** y para el **API** (mismo dominio con rutas o subdominios) | Sí | El frontend se construye con `VITE_API_BASE_URL` apuntando a la URL que ve el **navegador**. |
 | N3 | **CORS**: variable `CORS_ORIGINS` debe incluir el origen exacto del front (esquema + host + puerto si aplica) | Sí | Ver `.env.example`. |
-| N4 | Reglas de **firewall / security groups**: exponer solo puertos necesarios (p. ej. 443/80); **no** publicar Postgres (5432) ni AMQP (5672) a Internet | Sí | Alineado con `docker-compose.prod.yml` (sin mapeo de puertos de Postgres/Rabbit al host). |
-| N5 | Conectividad **privada** entre API, worker, Postgres y RabbitMQ (misma VPC, red de contenedores, mesh, etc.) | Sí | Los servicios deben resolverse por hostname interno (equivalente a nombres de servicio en Compose). |
-| N6 | Opcional: acceso restringido a **RabbitMQ Management** (15672) solo por VPN/bastion | Opcional | Solo si se expone la UI de gestión. |
+| N4 | Reglas de **firewall / security groups**: exponer solo puertos necesarios (p. ej. 443/80 hacia API y front); **no** publicar a Internet los endpoints de Postgres ni AMQP del servicio gestionado (o restringirlos a redes privadas/VPC) | Sí | Aunque la BD y el broker no corran en tus VMs, sus hostnames suelen ser alcanzables por red; debe aplicarse el principio de menor exposición. |
+| N5 | Conectividad **privada o lista de permitidos** desde API y worker hacia el **hostname** del PostgreSQL gestionado y del **broker AMQP** (VPC peering, Private Link, subredes autorizadas, etc.) | Sí | Equivalente a que en Compose todos compartan `vulncentral_net`. |
+| N6 | Opcional: UI de administración del broker (tipo RabbitMQ Management en 15672) solo por VPN/bastion si el proveedor la expone | Opcional | Depende del producto gestionado elegido. |
 
 ---
 
-## 3. Datos: PostgreSQL
+## 3. Datos: PostgreSQL (gestionado recomendado)
 
 | ID | Requisito | Obligatorio | Notas |
 |----|-----------|-------------|--------|
-| D1 | **PostgreSQL** compatible con SQLAlchemy/psycopg (versión acorde a la imagen del proyecto, p. ej. 16 en compose) | Sí | Variables: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, host/puerto o `DATABASE_URL`. |
-| D2 | Persistencia durable (volumen, disco gestionado, RDS, etc.) | Sí | |
-| D3 | Estrategia de **migraciones** (Alembic u otra) ejecutable en el entorno de despliegue | Sí | El paquete compartido `packages/vulncentral-db` y el flujo de despliegue deben aplicar esquema actualizado. |
-| D4 | Copias de seguridad y restauración (RPO/RTO según política) | Recomendado | Especialmente si el despliegue deja de ser solo académico. |
+| D1 | **PostgreSQL** compatible con SQLAlchemy/psycopg (versión acorde al proyecto, p. ej. 16 en compose de referencia) | Sí | Variables: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, host/puerto o `DATABASE_URL`. En servicio gestionado: usuario/clave del proveedor, SSL si lo exige el endpoint. |
+| D2 | Persistencia durable gestionada por el proveedor (discos, réplicas, PITR según el tier) | Sí | Sustituye al volumen `postgres_data` del compose. |
+| D3 | Estrategia de **migraciones** (Alembic u otra) ejecutable contra ese endpoint (p. ej. job de despliegue o pipeline con red a la BD) | Sí | El paquete `packages/vulncentral-db` y el flujo de despliegue deben aplicar esquema actualizado. |
+| D4 | Copias de seguridad y restauración (RPO/RTO según política) | Recomendado | En BD gestionada suele venir del plan del proveedor; documentar responsabilidad y pruebas de restore. |
 
 ---
 
-## 4. Mensajería: RabbitMQ (Celery)
+## 4. Mensajería: RabbitMQ / AMQP (gestionado recomendado)
 
 | ID | Requisito | Obligatorio | Notas |
 |----|-----------|-------------|--------|
-| M1 | **RabbitMQ** accesible por AMQP desde API y worker | Sí | `CELERY_BROKER_URL` (p. ej. `amqp://user:pass@host:5672/vhost`). Usuario, contraseña y vhost coherentes con `RABBITMQ_*`. |
+| M1 | **Broker AMQP** accesible desde API y worker (compatible con la URL de `CELERY_BROKER_URL`) | Sí | P. ej. `amqp://user:pass@host:5672/vhost`. Con RabbitMQ gestionado, usuario, contraseña y vhost los define el proveedor. |
 | M2 | Backend de resultados Celery (`CELERY_RESULT_BACKEND`, p. ej. `rpc://` en desarrollo) | Sí | En producción avanzada puede evaluarse Redis/DB; el proyecto documenta `rpc://` para desarrollo. |
-| M3 | Persistencia de colas/datos de broker si se requiere sobrevivir a reinicios | Recomendado | Volumen o servicio gestionado con persistencia. |
+| M3 | Persistencia y disponibilidad del broker según política de colas | Recomendado | En servicio gestionado: elegir tier con persistencia y HA si el negocio lo requiere. |
 
 ---
 
@@ -54,7 +72,7 @@ Documento orientado a planificar el despliegue de **VulnCentral** en un proveedo
 
 | ID | Requisito | Obligatorio | Notas |
 |----|-----------|-------------|--------|
-| S1 | **Almacenamiento compartido** entre API y worker bajo la misma ruta lógica (p. ej. `/app/data/reports`) o mecanismo equivalente | Sí * | El API escribe JSON; el worker lee y elimina tras commit. En Compose: volumen `reports_data`. En PaaS sin volumen compartido entre servicios hace falta **diseño alternativo** (objeto, DB, cola con payload, etc.). |
+| S1 | **Almacenamiento compartido** entre API y worker bajo la misma ruta lógica (p. ej. `/app/data/reports`) o mecanismo equivalente | Sí * | El API escribe JSON; el worker lee y elimina tras commit. En Compose: volumen `reports_data`. En cloud: volumen compartido del orquestador, NFS, EFS, Azure Files, etc. Si el PaaS no permite volumen compartido entre réplicas, hace falta **diseño alternativo** (objeto, DB, cola con payload, etc.). |
 | S2 | Límite de tamaño de cuerpo JSON configurable (`MAX_JSON_BODY_BYTES`, por defecto 10 MiB) | Recomendado | Proxies/load balancers deben permitir al menos ese tamaño en `POST .../trivy-report`. |
 
 \*Obligatorio para el flujo de ingesta Trivy tal como está implementado en el repositorio.
@@ -65,8 +83,8 @@ Documento orientado a planificar el despliegue de **VulnCentral** en un proveedo
 
 | ID | Requisito | Obligatorio | Notas |
 |----|-----------|-------------|--------|
-| K1 | Gestión segura de secretos: `POSTGRES_PASSWORD`, `RABBITMQ_DEFAULT_PASS`, `JWT_SECRET`, credenciales AMQP | Sí | Preferible almacén de secretos del proveedor o variables cifradas; no commitear `.env`. |
-| K2 | `JWT_SECRET` fuerte y rotación según política | Sí | Autenticación JWT (Fase 3). |
+| K1 | Gestión segura de secretos: credenciales de PostgreSQL gestionado, credenciales AMQP, `JWT_SECRET` | Sí | Preferible almacén de secretos del proveedor o variables cifradas; no commitear `.env`. |
+| K2 | `JWT_SECRET` fuerte y rotación según política | Sí | Autenticación JWT. |
 | K3 | `JWT_ALGORITHM`, `JWT_EXPIRE_MINUTES` acordes con el cliente | Sí | Valores por defecto en `.env.example`. |
 | K4 | Rate limiting (`RATE_LIMIT_ENABLED`, `RATE_LIMIT_LOGIN`) si se expone login públicamente | Recomendado | Ver `.env.example`. |
 
@@ -96,9 +114,10 @@ Documento orientado a planificar el despliegue de **VulnCentral** en un proveedo
 
 | ID | Requisito | Obligatorio | Notas |
 |----|-----------|-------------|--------|
-| O1 | Agregación de **logs** (stdout/stderr de contenedores o equivalente) | Recomendado | |
+| O1 | Agregación de **logs** (stdout/stderr de API, worker y front) | Recomendado | |
 | O2 | Endpoint de salud del API (`/health`) monitorizable | Recomendado | Usado en healthcheck del compose. |
-| O3 | Alertas de facturación y cuotas (en cloud público) | Recomendado | Evita sobrecostes en proyectos académicos. |
+| O3 | Métricas y alertas del **PostgreSQL** y del **broker** según el producto gestionado | Recomendado | Sustituye en parte la observabilidad “por contenedor” de Postgres/Rabbit en compose. |
+| O4 | Alertas de facturación y cuotas (en cloud público) | Recomendado | Evita sobrecostes en proyectos académicos. |
 
 ---
 
@@ -106,15 +125,25 @@ Documento orientado a planificar el despliegue de **VulnCentral** en un proveedo
 
 | Variable (ejemplo) | Servicios típicos | Uso |
 |--------------------|-------------------|-----|
-| `POSTGRES_*` / `DATABASE_URL` | API, worker | Conexión a BD |
-| `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND` | API, worker | Cola Celery |
+| `POSTGRES_*` / `DATABASE_URL` | API, worker | Conexión a BD (endpoint del servicio gestionado) |
+| `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND` | API, worker | Cola Celery (endpoint del broker gestionado) |
 | `JWT_*` | API | Autenticación |
 | `CORS_ORIGINS` | API | CORS del SPA |
 | `VITE_API_BASE_URL` | Build frontend | Base URL del API en el navegador |
 | `RATE_LIMIT_*`, `MAX_JSON_BODY_BYTES` | API | Límites y tamaño de cuerpo |
-| `REPORTS_DIR` / `REPORTS_BASE_DIR` | API, worker | Rutas de informes (volumen compartido) |
+| `REPORTS_DIR` / `REPORTS_BASE_DIR` | API, worker | Rutas de informes (volumen compartido o equivalente) |
 
 Referencia completa: `.env.example` en la raíz del repositorio.
+
+---
+
+## 11. Resumen numérico (referencia rápida)
+
+| Concepto | Cantidad / orden de magnitud |
+|----------|------------------------------|
+| Servicios **desplegados como aplicación** (imágenes propias) | **3** (API, worker, frontend) |
+| Dependencias típicas **gestionadas** | **2** obligatorias en producción (PostgreSQL, broker AMQP); **pgAdmin** no cuenta como requisito de producción |
+| Memoria límite orientativa solo app (`docker-compose.prod.yml`) | **~1,25 GiB** sumando API + worker + frontend; más overhead de plataforma |
 
 ---
 
