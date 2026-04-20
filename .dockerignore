@@ -1,5 +1,8 @@
 .git
 .github
+.cursor
+docs
+services/frontend
 **/.pytest_cache
 **/__pycache__
 **/*.pyc
