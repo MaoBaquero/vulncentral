@@ -4,6 +4,24 @@ Guía breve para instalar y ejecutar la aplicación. Para detalle técnico adici
 
 ---
 
+
+## Instalar contenedor
+- git clone https://github.com/MaoBaquero/vulncentral.git
+- cd vulncentral
+- cp .env.example .env
+- docker compose up -d --build
+- docker compose exec api-gateway alembic upgrade head
+- docker compose exec api-gateway python -m app.scripts.seed
+
+## Entrar a aplicativo
+- Login con elmero@admon.com / elmero/*-
+
+
+## Elimina contenedor e imagenes
+docker compose down -v
+docker compose down -v --rmi all
+
+
 ## 1. Descarga desde GitHub
 
 ### Prerrequisitos
