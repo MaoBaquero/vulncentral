@@ -774,11 +774,13 @@ docker compose up -d api-gateway
 
 - **Rate limiting** (`slowapi`): por defecto **`POST /auth/login`** limita intentos por IP (cabecera **`X-Forwarded-For`** si existe; si no, IP del cliente). Respuesta **429** con código `rate_limited`. Variables: **`RATE_LIMIT_ENABLED`** (`true` por defecto; `false`/`0`/`off` desactiva), **`RATE_LIMIT_LOGIN`** (p. ej. `5/minute`; `0`/`off`/`none` desactiva solo el límite de login, útil en tests).
 - **Auditoría**: inserciones en **`audit_logs`** en login (éxito/fallo), mutaciones relevantes en usuarios/proyectos/escaneos/vulnerabilidades e ingesta Trivy. Los registros **no** incluyen contraseñas ni tokens. Migración Alembic **`9b1c2d3e4003`**: columna **`audit_logs.user_id`** pasa a ser **nullable** (eventos anónimos, p. ej. login fallido). Tras desplegar: `alembic upgrade head`.
-- **IDOR / alcance por objeto**: salvo roles con alcance global (**Administrator** y **Master**), los listados y lecturas de **proyectos**, **escaneos** y **vulnerabilidades** se restringen a recursos cuyo proyecto pertenece al usuario autenticado (`projects.user_id`). Crear proyecto sin alcance global solo si **`user_id` del cuerpo** coincide con el usuario actual.
+- **IDOR / alcance por objeto**: **Administrator** y **Master** tienen alcance global de datos en lectura y reglas específicas de mutación (p. ej. creación de proyecto para cualquier `user_id` vía `has_global_data_access`). El rol **Inspector** tiene **lectura transversal** (todos los proyectos y recursos enlazados en listados y GET) mediante `has_cross_project_read`, sin formar parte del alcance global de mutación en proyectos. El resto de roles quedan restringidos a proyectos donde `projects.user_id` coincide con el usuario autenticado. Crear proyecto sin alcance global solo si **`user_id` del cuerpo** coincide con el usuario actual.
 - **Content-Type JSON**: en **`POST`/`PATCH`/`PUT`** bajo **`/api/v1`** con cuerpo no vacío se exige **`Content-Type: application/json`**; si no, **415** (`unsupported_media_type`). Aplica también a **`POST .../trivy-report`** cuando hay cuerpo.
 - **Logging**: el manejador global de excepciones **no** concatena el mensaje interno de la excepción en el log (evita fugas accidentales en trazas); las respuestas al cliente siguen siendo genéricas donde ya estaba unificado.
 
-**Pruebas** (desde `services/api-gateway`): `pytest tests/test_f8_security.py -q` (MIME, auditoría tras login, IDOR con rol Inspector).
+**Pruebas** (desde `services/api-gateway`): `pytest tests/test_f8_security.py -q` (MIME, auditoría tras login, lectura transversal Inspector y 403 en creación proyecto/escaneo).
+
+Detalle del ajuste Inspector: [docs/Ajustes.md](docs/Ajustes.md).
 
 **Comandos tras actualizar código**
 

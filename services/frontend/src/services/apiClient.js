@@ -17,7 +17,22 @@ export async function request(path, opts = {}) {
     fetchBody = JSON.stringify(body);
   }
   const url = `${base()}${path.startsWith("/") ? path : `/${path}`}`;
-  const res = await fetch(url, { method, headers, body: fetchBody });
+  let res;
+  try {
+    res = await fetch(url, { method, headers, body: fetchBody });
+  } catch (e) {
+    const name = e?.name || "";
+    const msg = e?.message || "";
+    const isNetwork =
+      msg === "Failed to fetch" || name === "TypeError" || name === "AbortError";
+    const hint =
+      "Comprueba que el API esté en marcha, VITE_API_BASE_URL (origen del navegador), CORS_ORIGINS y la consola/red del navegador (F12). Ver docs/diagnostico-ingesta-trivy-carga.md.";
+    const out = isNetwork ? `Failed to fetch. ${hint}` : msg || "Error de red";
+    const err = new Error(out);
+    err.code = "network_error";
+    err.cause = e;
+    throw err;
+  }
   const text = await res.text();
   let data = null;
   try {

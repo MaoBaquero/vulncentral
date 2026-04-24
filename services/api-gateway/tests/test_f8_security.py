@@ -1,4 +1,4 @@
-"""Fase 8: MIME en JSON, auditoría en login, IDOR por rol Inspector."""
+"""Fase 8: MIME en JSON, auditoría en login, alcance de lectura y RBAC rol Inspector."""
 
 from __future__ import annotations
 
@@ -38,6 +38,34 @@ def master_headers(client: TestClient, engine) -> dict[str, str]:
     r = client.post(
         "/auth/login",
         data={"username": "masterapi@example.com", "password": "mpass"},
+    )
+    assert r.status_code == 200
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
+@pytest.fixture
+def inspector_headers(client: TestClient, engine) -> dict[str, str]:
+    Session = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    db = Session()
+    try:
+        insp_role = db.scalar(select(Role).where(Role.name == "Inspector"))
+        assert insp_role is not None
+        if db.scalar(select(User).where(User.email == "inspector-idor@example.com")) is None:
+            u_kwargs: dict[str, Any] = dict(
+                name="Inspector Cross",
+                email="inspector-idor@example.com",
+                password=hash_password("secret123"),
+                role_id=insp_role.id,
+            )
+            if db.bind.dialect.name == "sqlite":
+                u_kwargs["id"] = 99
+            db.add(User(**u_kwargs))
+            db.commit()
+    finally:
+        db.close()
+    r = client.post(
+        "/auth/login",
+        data={"username": "inspector-idor@example.com", "password": "secret123"},
     )
     assert r.status_code == 200
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
@@ -102,25 +130,11 @@ def test_login_success_creates_audit_row(client: TestClient, engine) -> None:
         db.close()
 
 
-def test_inspector_cannot_read_foreign_project(client: TestClient, engine, master_headers) -> None:
-    Session = sessionmaker(bind=engine, autocommit=False, autoflush=False)
-    db = Session()
-    try:
-        insp_role = db.scalar(select(Role).where(Role.name == "Inspector"))
-        assert insp_role is not None
-        u_kwargs: dict[str, Any] = dict(
-            name="Inspector IDOR",
-            email="inspector-idor@example.com",
-            password=hash_password("secret123"),
-            role_id=insp_role.id,
-        )
-        if db.bind.dialect.name == "sqlite":
-            u_kwargs["id"] = 99
-        db.add(User(**u_kwargs))
-        db.commit()
-    finally:
-        db.close()
-
+def test_inspector_can_read_foreign_project(
+    client: TestClient,
+    master_headers: dict[str, str],
+    inspector_headers: dict[str, str],
+) -> None:
     pr = client.post(
         "/api/v1/projects",
         headers=master_headers,
@@ -129,12 +143,38 @@ def test_inspector_cannot_read_foreign_project(client: TestClient, engine, maste
     assert pr.status_code == 201
     foreign_pid = pr.json()["id"]
 
-    ir = client.post(
-        "/auth/login",
-        data={"username": "inspector-idor@example.com", "password": "secret123"},
+    gr = client.get(f"/api/v1/projects/{foreign_pid}", headers=inspector_headers)
+    assert gr.status_code == 200
+    assert gr.json()["name"] == "Proyecto ajeno"
+
+
+def test_inspector_cannot_create_project(client: TestClient, inspector_headers: dict[str, str]) -> None:
+    r = client.post(
+        "/api/v1/projects",
+        headers=inspector_headers,
+        json={"user_id": 99, "name": "No permitido", "description": None},
     )
-    assert ir.status_code == 200
-    itoken = ir.json()["access_token"]
-    iheaders = {"Authorization": f"Bearer {itoken}"}
-    gr = client.get(f"/api/v1/projects/{foreign_pid}", headers=iheaders)
-    assert gr.status_code == 404
+    assert r.status_code == 403
+    assert r.json()["error"]["code"] == "forbidden"
+
+
+def test_inspector_cannot_create_scan(
+    client: TestClient,
+    master_headers: dict[str, str],
+    inspector_headers: dict[str, str],
+) -> None:
+    pr = client.post(
+        "/api/v1/projects",
+        headers=master_headers,
+        json={"user_id": 1, "name": "P para scan", "description": None},
+    )
+    assert pr.status_code == 201
+    pid = pr.json()["id"]
+
+    sr = client.post(
+        "/api/v1/scans",
+        headers=inspector_headers,
+        json={"project_id": pid, "tool": "trivy", "status": "new"},
+    )
+    assert sr.status_code == 403
+    assert sr.json()["error"]["code"] == "forbidden"

@@ -141,6 +141,10 @@ Tras cambiar `FRONTEND_PORT` o `CORS_ORIGINS`, conviene recrear los servicios af
 docker compose up -d --force-recreate frontend api-gateway
 ```
 
+### Ingesta Trivy desde la UI («Cargar») sin filas nuevas
+
+Si el mensaje indica que el proceso se **encoló** pero no aparecen vulnerabilidades, revisa que el servicio **`worker`** esté en ejecución y los logs (`docker compose logs worker`). Si ves **Failed to fetch** al enviar el JSON, suele ser CORS o `VITE_API_BASE_URL` (misma guía, sección 5). Asegúrate de que `.env` tenga `CORS_ORIGINS` con el origen exacto del SPA y `VITE_API_BASE_URL` apuntando al API desde el navegador; tras cambiar `VITE_*`, reconstruye el frontend (`docker compose build frontend`).
+
 ### Posibles errores
 
 | Síntoma | Qué revisar |

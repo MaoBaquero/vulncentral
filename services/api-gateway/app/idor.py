@@ -20,9 +20,18 @@ def has_global_data_access(user: User) -> bool:
     return user.role.name in GLOBAL_DATA_ROLES
 
 
+def has_cross_project_read(user: User) -> bool:
+    """Lectura/listado de proyectos y recursos enlazados en cualquier propietario (RBAC sigue limitando mutaciones)."""
+    if has_global_data_access(user):
+        return True
+    if user.role is None or user.role.name is None:
+        return False
+    return user.role.name == "Inspector"
+
+
 def visible_project_ids(db: Session, user: User) -> set[int] | None:
     """None = sin filtro (acceso global). Conjunto vacío posible si el usuario no tiene proyectos."""
-    if has_global_data_access(user):
+    if has_cross_project_read(user):
         return None
     ids = db.scalars(
         select(Project.id).where(
@@ -46,7 +55,7 @@ def get_project_for_read(db: Session, user: User, project_id: int) -> Project:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=error_payload("not_found", "Proyecto no encontrado."),
         )
-    if not has_global_data_access(user) and p.user_id != user.id:
+    if not has_cross_project_read(user) and p.user_id != user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=error_payload("not_found", "Proyecto no encontrado."),
@@ -67,7 +76,7 @@ def get_scan_for_read(db: Session, user: User, scan_id: int) -> Scan:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=error_payload("not_found", "Escaneo no encontrado."),
         )
-    if has_global_data_access(user):
+    if has_cross_project_read(user):
         return s
     p = db.scalar(
         select(Project).where(Project.id == s.project_id, Project.deleted_at.is_(None)),
@@ -96,7 +105,7 @@ def get_vulnerability_for_read(db: Session, user: User, vuln_id: int) -> Vulnera
             status_code=status.HTTP_404_NOT_FOUND,
             detail=error_payload("not_found", "Vulnerabilidad no encontrada."),
         )
-    if has_global_data_access(user):
+    if has_cross_project_read(user):
         return v
     s = db.scalar(
         select(Scan).where(Scan.id == v.scan_id, Scan.deleted_at.is_(None)),

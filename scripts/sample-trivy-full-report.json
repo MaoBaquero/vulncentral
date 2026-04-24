@@ -1,0 +1,145 @@
+{
+  "SchemaVersion": 2,
+  "CreatedAt": "2026-04-24T11:58:00Z",
+  "ArtifactName": "myapp:latest",
+  "ArtifactType": "container_image",
+  "Metadata": {
+    "OS": {
+      "Family": "debian",
+      "Name": "11"
+    },
+    "ImageID": "sha256:abc123def456",
+    "RepoTags": ["myapp:latest"],
+    "ImageConfig": {
+      "architecture": "amd64",
+      "os": "linux"
+    }
+  },
+  "Results": [
+    {
+      "Target": "myapp:latest (debian 11)",
+      "Class": "os-pkgs",
+      "Type": "debian",
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2024-99991",
+          "PkgName": "openssl",
+          "InstalledVersion": "1.1.1n-0+deb11u3",
+          "FixedVersion": "1.1.1w-0+deb11u4",
+          "Status": "fixed",
+          "Severity": "CRITICAL",
+          "Title": "Remote code execution in OpenSSL",
+          "Description": "Crafted TLS packets may trigger RCE.",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2024-99991",
+          "CVSS": {
+            "nvd": {
+              "V3Score": 9.8,
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+            }
+          },
+          "References": ["https://nvd.nist.gov/vuln/detail/CVE-2024-99991"]
+        },
+        {
+          "VulnerabilityID": "CVE-2024-45678",
+          "PkgName": "libxml2",
+          "InstalledVersion": "2.9.10",
+          "FixedVersion": "2.9.14",
+          "Status": "fixed",
+          "Severity": "HIGH",
+          "Title": "XML External Entity (XXE)",
+          "Description": "Improper XML parsing allows XXE attacks.",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2024-45678",
+          "CVSS": {
+            "nvd": {
+              "V3Score": 7.7,
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:H/A:N"
+            }
+          }
+        },
+        {
+          "VulnerabilityID": "CVE-2022-11111",
+          "PkgName": "bash",
+          "InstalledVersion": "5.1-2",
+          "FixedVersion": "5.1-6",
+          "Status": "fixed",
+          "Severity": "LOW",
+          "Title": "Environment variable parsing issue",
+          "Description": "Low impact issue in shell environment parsing.",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-11111",
+          "CVSS": {
+            "nvd": {
+              "V3Score": 3.7,
+              "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:L/I:L/A:N"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "Target": "Python",
+      "Class": "lang-pkgs",
+      "Type": "python-pkg",
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2024-12345",
+          "PkgName": "requests",
+          "InstalledVersion": "2.28.1",
+          "FixedVersion": "2.31.0",
+          "Status": "fixed",
+          "Severity": "HIGH",
+          "Title": "Improper certificate validation",
+          "Description": "requests package vulnerable to certificate validation bypass.",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2024-12345",
+          "CVSS": {
+            "nvd": {
+              "V3Score": 8.1,
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:N"
+            }
+          },
+          "References": ["https://nvd.nist.gov/vuln/detail/CVE-2024-12345"]
+        },
+        {
+          "VulnerabilityID": "CVE-2023-56789",
+          "PkgName": "urllib3",
+          "InstalledVersion": "1.26.8",
+          "FixedVersion": "1.26.18",
+          "Status": "fixed",
+          "Severity": "MEDIUM",
+          "Title": "HTTP request smuggling issue",
+          "Description": "Malformed header handling could lead to request smuggling.",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-56789",
+          "CVSS": {
+            "nvd": {
+              "V3Score": 6.5,
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "Target": "package-lock.json",
+      "Class": "lang-pkgs",
+      "Type": "npm",
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2024-77777",
+          "PkgName": "lodash",
+          "InstalledVersion": "4.17.15",
+          "FixedVersion": "4.17.21",
+          "Status": "fixed",
+          "Severity": "HIGH",
+          "Title": "Prototype pollution",
+          "Description": "Prototype pollution vulnerability in lodash.",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2024-77777",
+          "CVSS": {
+            "nvd": {
+              "V3Score": 8.8,
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

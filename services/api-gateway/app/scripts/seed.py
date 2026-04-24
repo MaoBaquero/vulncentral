@@ -44,7 +44,7 @@ PERMISSION_ROWS: list[tuple[str, str, bool, bool, bool, bool]] = [
     ("Master", "Gestor logs", False, False, False, False),
     ("Inspector", "Gestor usuarios", False, False, False, False),
     ("Inspector", "Gestor proyectos", False, True, False, False),
-    ("Inspector", "Gestor escaneos", True, True, True, True),
+    ("Inspector", "Gestor escaneos", False, True, True, True),
     ("Inspector", "Gestor vulnerabilidades", True, True, True, True),
     ("Inspector", "Gestor logs", False, False, False, False),
 ]
