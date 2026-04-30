@@ -104,4 +104,45 @@ Dejar constancia de que el mensaje **Failed to fetch** suele deberse a **CORS / 
 
 ---
 
-*Referencia de requisitos: `.cursor/prompts/Ajuste_Operativo_1.md`.*
+## Ajuste: botón «Subir» informe Trivy desde fichero JSON (Vulnerabilidades)
+
+### Objetivo del ajuste
+
+Ofrecer en la vista **Vulnerabilidades**, junto al flujo existente de **Cargar** (pegado de JSON en modal) y **Crear**, un tercer botón **Subir** que abra el selector de archivos del sistema para elegir un `.json` de Trivy y enviarlo al mismo endpoint `POST /api/v1/scans/{scan_id}/trivy-report` (cola Celery + worker), sin cambiar contrato de API.
+
+### Archivos modificados
+
+| Archivo | Descripción breve |
+|---------|-------------------|
+| [`services/frontend/src/pages/VulnerabilitiesPage.jsx`](../services/frontend/src/pages/VulnerabilitiesPage.jsx) | Botón **Subir** (misma visibilidad RBAC y contexto de escaneo que **Cargar**), `<input type="file">` oculto, lectura con `FileReader` y `uploadTrivyReport` desde [`services/frontend/src/services/scans.js`](../services/frontend/src/services/scans.js); feedback de carga y mensaje breve «Encolado» tras éxito. |
+| [`docs/Ajustes.md`](./Ajustes.md) | Esta entrada. |
+
+### Archivos creados
+
+Ninguno.
+
+### Comandos utilizados
+
+Verificación manual en navegador (contexto de escaneo activo desde Escaneos) y, opcionalmente, compilación del frontend:
+
+```bash
+cd services/frontend && npm run build
+```
+
+### Problemas comunes y soluciones
+
+| Problema | Solución |
+|----------|----------|
+| Error al enviar o JSON inválido | Mismo criterio que **Cargar** con pegado: el cliente parsea el texto con `JSON.parse` antes del `POST`; corregir el fichero o exportar de nuevo desde Trivy. |
+| API responde 202 pero la tabla no muestra vulnerabilidades | Revisar worker, RabbitMQ y volumen compartido de informes; ver [diagnostico-ingesta-trivy-carga.md](./diagnostico-ingesta-trivy-carga.md). |
+| Navegador lento o fallo al leer un JSON enorme | Informes muy grandes consumen memoria en el cliente; valorar trocear o subir vía **Cargar** por partes solo si el modelo de negocio lo permite (el endpoint actual espera un único JSON completo). |
+
+### Complejidad, impacto y riesgo
+
+- **Complejidad**: baja (solo React y servicio existente).
+- **Impacto**: bajo–medio — mejora operativa; mismos datos y mismo endpoint que **Cargar**.
+- **Riesgo**: bajo; riesgos residuales: JSON mal formado y ficheros extremadamente grandes en memoria del navegador.
+
+---
+
+*Referencias de requisitos: `.cursor/prompts/Ajuste_Operativo_1.md`, `.cursor/prompts/Ajuste_Operativo_2.md`.*

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import TrivyUploadModal from "../components/TrivyUploadModal";
 import { syncAndGetVulnsContext } from "../flowContext";
 import { UC_SCANS, UC_VULNS } from "../rbac";
 import { useAuth } from "../context/AuthContext";
 import * as api from "../services/vulnerabilities";
+import { uploadTrivyReport } from "../services/scans";
 
 const SEVERITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 const STATUSES = ["OPEN", "IN_PROGRESS", "MITIGATED", "ACCEPTED"];
@@ -64,6 +65,17 @@ function IconUpload() {
   );
 }
 
+function IconFileDoc() {
+  return (
+    <svg className="vc-btn__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+    </svg>
+  );
+}
+
 function IconArrowLeft() {
   return (
     <svg className="vc-btn__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -81,6 +93,9 @@ export default function VulnerabilitiesPage() {
   const [error, setError] = useState("");
   const [modal, setModal] = useState(null);
   const [trivyOpen, setTrivyOpen] = useState(false);
+  const [trivyUploading, setTrivyUploading] = useState(false);
+  const [trivyUploadOk, setTrivyUploadOk] = useState("");
+  const fileInputRef = useRef(null);
   const [flowScanId, setFlowScanId] = useState(undefined);
   const [flowProjectId, setFlowProjectId] = useState(undefined);
 
@@ -127,18 +142,65 @@ export default function VulnerabilitiesPage() {
 
   const canLoadTrivy = can(UC_SCANS, "u") && flowScanId != null;
 
+  async function onTrivyFileSelected(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || flowScanId == null) return;
+    setError("");
+    setTrivyUploadOk("");
+    setTrivyUploading(true);
+    try {
+      const text = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+        reader.readAsText(file);
+      });
+      await uploadTrivyReport(token, flowScanId, text);
+      setTrivyUploadOk(`Encolado: ${file.name}`);
+      window.setTimeout(() => setTrivyUploadOk(""), 4000);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setTrivyUploading(false);
+    }
+  }
+
   return (
     <div>
       <div className="vc-page-head">
         <h1>Vulnerabilidades</h1>
         <div className="vc-page-head__actions">
           {canLoadTrivy && (
-            <button type="button" className="vc-btn vc-btn--primary" onClick={() => setTrivyOpen(true)}>
-              <span className="vc-btn__inner">
-                <IconUpload />
-                Cargar
-              </span>
-            </button>
+            <>
+              <button type="button" className="vc-btn vc-btn--primary" onClick={() => setTrivyOpen(true)}>
+                <span className="vc-btn__inner">
+                  <IconUpload />
+                  Cargar
+                </span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json,application/json"
+                style={{ display: "none" }}
+                aria-hidden
+                tabIndex={-1}
+                onChange={onTrivyFileSelected}
+              />
+              <button
+                type="button"
+                className="vc-btn"
+                disabled={trivyUploading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <span className="vc-btn__inner">
+                  <IconFileDoc />
+                  Subir
+                </span>
+              </button>
+            </>
           )}
           {can(UC_VULNS, "c") && (
             <button
@@ -171,6 +233,7 @@ export default function VulnerabilitiesPage() {
       */}
 
       {error && <div className="vc-banner vc-banner--error">{error}</div>}
+      {trivyUploadOk && <div className="vc-banner vc-banner--ok">{trivyUploadOk}</div>}
       <div className="vc-table-wrap">
         <table className="vc-table">
           <thead>
