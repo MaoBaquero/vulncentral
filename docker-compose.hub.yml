@@ -1,0 +1,170 @@
+# VulnCentral — solo imágenes Docker Hub (sin build local).
+# Uso: copia .env desde .env.example, ajusta secretos; luego:
+#   docker compose -f docker-compose.hub.yml up -d
+#
+# Tag de imágenes de aplicación (default v1.0.0). Sobrescribe en .env: VULNCENTRAL_TAG=latest
+#
+# Migraciones: no se ejecutan solas. Tras el primer arranque (y cuando cambien migraciones):
+#   docker compose -f docker-compose.hub.yml exec api-gateway alembic upgrade head
+# Opcional — datos iniciales / usuarios de demo:
+#   docker compose -f docker-compose.hub.yml exec api-gateway python -m app.scripts.seed
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vulncentral-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - vulncentral_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: vulncentral-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - vulncentral_net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  api-gateway:
+    image: maurobaquero/vulncentral-api-gateway:${VULNCENTRAL_TAG:-v1.0.0}
+    container_name: vulncentral-core-api
+    labels:
+      com.vulncentral.service: core-api
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-30}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+    ports:
+      - "${API_GATEWAY_PORT:-8000}:8000"
+    volumes:
+      - reports_data:/app/data/reports
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - vulncentral_net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  worker:
+    image: maurobaquero/vulncentral-worker:${VULNCENTRAL_TAG:-v1.0.0}
+    container_name: vulncentral-ingestion-worker
+    labels:
+      com.vulncentral.service: ingestion-worker
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+    volumes:
+      - reports_data:/app/data/reports
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - vulncentral_net
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A celery_app inspect ping -t 5 || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  # ADVERTENCIA — VITE_API_BASE_URL es build-time: la URL del API quedó fijada al construir la imagen
+  # publicada en Docker Hub. Si el navegador debe usar otro host/puerto para el API, necesitas una
+  # imagen de frontend construida con esa URL (u otro mecanismo); este compose no puede cambiarla en runtime.
+  frontend:
+    image: maurobaquero/vulncentral-frontend:${VULNCENTRAL_TAG:-v1.0.0}
+    container_name: vulncentral-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    networks:
+      - vulncentral_net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+networks:
+  vulncentral_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  reports_data:

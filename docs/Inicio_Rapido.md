@@ -2,6 +2,8 @@
 
 Guía breve para instalar y ejecutar la aplicación. Para detalle técnico adicional, consulta el [README principal](../README.md) del repositorio.
 
+Si quieres ejecutar **solo imágenes ya publicadas en Docker Hub** (sin construir en local), usa [`docker-compose.hub.yml`](../docker-compose.hub.yml) y el manual [Instalación vía Docker Hub](./install-docker-inicio-rapido.md).
+
 ---
 
 

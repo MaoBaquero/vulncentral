@@ -38,6 +38,7 @@ Construir un sistema DevSecOps funcional con:
 
 # [GUIA DE INICIO RAPIDO](docs/Inicio_Rapido.md)
 
+Para levantar el sistema **solo con imágenes de Docker Hub** (sin `docker compose build` ni Dockerfile local), usa [`docker-compose.hub.yml`](docker-compose.hub.yml) y la guía [Instalación vía Docker Hub](docs/install-docker-inicio-rapido.md).
 
 # DESCRIPCIÓN TÉCNICA DESARROLLO
 
