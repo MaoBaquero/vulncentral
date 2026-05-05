@@ -39,8 +39,8 @@
 
 ### 🚀 GUÍA RÁPIDA DE INSTALACIÓN
 
-- ### → **[Leer Guia de instalacion Guihub](Docs/Inicio_Rapido.md)**
-- ### → **[Leer Guia de instalacion Dockerhub](Docs/DockerHubPL.md)**
+- ### → **[Leer Guia de instalacion Guihub](docs/Inicio_Rapido.md)**
+- ### → **[Leer Guia de instalacion Dockerhub](docs/DockerHubPL.md)**
 
 ---
 ## Documentacion Técnica
@@ -133,7 +133,7 @@ Resumen Ejecutivo
 
 Este informe documenta el análisis exhaustivo de vulnerabilidades detectadas en el pipeline CI/CD del proyecto VulnCentral, realizado sobre 23 workflow runs ejecutados
 
-→ **[Ver detalles de informe](Docs/informe_vulnerabilidades_vulncentral.md)**
+→ **[Ver detalles de informe](docs/informe_vulnerabilidades_vulncentral.md)**
 ---
 
 ## Documentación del Proyecto
@@ -148,7 +148,7 @@ VulnCentral cuenta con documentación técnica completa organizada en manuales e
 
 El manual de arquitectura describe en detalle el patrón de **microservicios asíncronos**, las decisiones de diseño (Choreography Saga, Proxy de Referencia, Defense in Depth), la justificación de cada componente y los 7 diagramas UML completos: Componentes, Despliegue, Secuencia de autenticación, Secuencia de ingesta Trivy, Casos de Uso RBAC, DFD Nivel 0 y DFD Nivel 1 con mapeo de amenazas OWASP.
 
-→ **[Leer Manual de Arquitectura](Docs/manual-arquitectura.md)**
+→ **[Leer Manual de Arquitectura](docs/manual-arquitectura.md)**
 
 ---
 
@@ -158,7 +158,7 @@ El manual de arquitectura describe en detalle el patrón de **microservicios as�
 
 El manual de desarrollo cubre paso a paso la configuración del entorno, cómo ejecutar cada servicio en modo desarrollo, cómo correr las pruebas unitarias y de integración con cobertura, y cómo contribuir correctamente siguiendo la estrategia de ramas Git, la convención de commits y el proceso de revisión de Pull Requests.
 
-→ **[Leer Manual de Desarrollo](Docs/manual-desarrollo.md)**
+→ **[Leer Manual de Desarrollo](docs/manual-desarrollo.md)**
 
 ---
 
@@ -168,7 +168,7 @@ El manual de desarrollo cubre paso a paso la configuración del entorno, cómo e
 
 El manual de despliegue detalla los requisitos de hardware y software del servidor, la gestión segura de variables de entorno, los pasos de configuración de infraestructura con Docker Compose (IaC), la verificación del despliegue correcto y la resolución de los problemas más comunes.
 
-→ **[Leer Manual de Despliegue](Docs/Manual.de.Despliegue.md)**
+→ **[Leer Manual de Despliegue](docs/Manual.de.Despliegue.md)**
 
 ---
 
@@ -178,7 +178,7 @@ El manual de despliegue detalla los requisitos de hardware y software del servid
 
 El manual de seguridad describe el modelo de amenazas del sistema (activos, actores, vectores y controles), explica cómo están configuradas e integradas las herramientas DevSecOps (Trivy, ZAP, Gitleaks, Bandit), enseña a interpretar sus reportes, define el proceso de gestión de vulnerabilidades con SLA por severidad y establece la política de divulgación responsable.
 
-→ **[Leer Manual de Seguridad](Docs/Manual.de.Seguridad.md)**
+→ **[Leer Manual de Seguridad](docs/Manual.de.Seguridad.md)**
 
 ---
 
@@ -188,7 +188,7 @@ El manual de seguridad describe el modelo de amenazas del sistema (activos, acto
 
 El manual de usuario guía paso a paso el uso completo de VulnCentral: inicio de sesión, gestión de proyectos y escaneos, carga de informes Trivy, revisión de vulnerabilidades, auditoría de acciones y control de acceso según rol. Incluye el flujo recomendado de trabajo y los errores más frecuentes con su solución.
 
-→ **[Leer Manual de Usuario](Docs/Manual_de_Usuario.md)**
+→ **[Leer Manual de Usuario](docs/Manual_de_Usuario.md)**
 
 ---
 
@@ -199,7 +199,7 @@ El manual de usuario guía paso a paso el uso completo de VulnCentral: inicio de
 
 VulCentral nace como respuesta a esta problemática: una plataforma única que consolida, normaliza y facilita la gestión del ciclo de vida de las vulnerabilidades. El presente informe técnico detalla su arquitectura, funcionalidades clave y los resultados obtenidos durante su implementación.
 
-→ **[Leer Informe tecnico](Docs/Informe_Técnico_VulnCentral.md)**
+→ **[Leer Informe tecnico](docs/Informe_Técnico_VulnCentral.md)**
 
 ---
 
@@ -209,7 +209,7 @@ VulCentral nace como respuesta a esta problemática: una plataforma única que c
 
 Este documento cubre el modelado de amenazas de los **seis componentes principales** de VulnCentral y los flujos de datos entre ellos, aplicando la metodología STRIDE para identificar, clasificar y mitigar amenazas de seguridad.
 
-→ **[Leer detalles Modelado de Amenazas](Docs/modelado-amenazas.md)**
+→ **[Leer detalles Modelado de Amenazas](docs/modelado-amenazas.md)**
 
 ---
 
