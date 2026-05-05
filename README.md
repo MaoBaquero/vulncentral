@@ -39,11 +39,11 @@
 
 ### 🚀 GUÍA RÁPIDA DE INSTALACIÓN
 
-- ### → **[Leer Guia de instalacion Guihub](docs/Inicio_Rapido.md)**
-- ### → **[Leer Guia de instalacion Dockerhub](docs/DockerHubPL.md)**
+- ### → **[Leer Guía de instalación github](docs/Inicio_Rapido.md)**
+- ### → **[Leer Guía de instalación dockerhub](docs/DockerHubPL.md)**
 
 ---
-## Documentacion Técnica
+## Documentación Técnica
 
 ### Flujo de procesamiento asíncrono
 

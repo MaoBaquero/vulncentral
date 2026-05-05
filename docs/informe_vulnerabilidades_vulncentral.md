@@ -31,22 +31,22 @@ El análisis con código fuente **duplicó** el número de vulnerabilidades dete
 
 | # | Vulnerabilidad | Workflow | Estado |
 |---|---|---|---|
-| **V1** | Node.js 20 hardcodeado y deprecado en GitHub Actions | CI + Publish Docker Hub | 🔴 PENDIENTE |
-| **V2** | Sin pinning de actions por SHA de commit | CI + Publish Docker Hub | 🔴 PENDIENTE |
-| **V3** | Sin bloque permissions en el workflow CI | CI | 🔴 PENDIENTE |
-| **V4** | VITE_API_BASE_URL hardcodeada incorrecta — variable de repositorio no configurada | CI + Publish Docker Hub | 🔴 PENDIENTE |
-| **V5** | pip install sin verificación de integridad por hashes | CI | 🔴 PENDIENTE |
-| **V6** | Build de imágenes Docker en CI sin escaneo de seguridad | CI | 🔴 PENDIENTE |
-| **V7** | Sin timeout-minutes en los jobs de CI y Publish | CI + Publish Docker Hub | 🔴 PENDIENTE |
+| **V1** | Node.js 20 hardcodeado y deprecado en GitHub Actions | CI + Publish Docker Hub | ✅ CORREGIDA |
+| **V2** | Sin pinning de actions por SHA de commit | CI + Publish Docker Hub | ✅ CORREGIDA |
+| **V3** | Sin bloque permissions en el workflow CI | CI | ✅ CORREGIDA |
+| **V4** | VITE_API_BASE_URL hardcodeada incorrecta — variable de repositorio no configurada | CI + Publish Docker Hub | ✅ CORREGIDA |
+| **V5** | pip install sin verificación de integridad por hashes | CI | ✅ CORREGIDA |
+| **V6** | Build de imágenes Docker en CI sin escaneo de seguridad | CI | ✅ CORREGIDA |
+| **V7** | Sin timeout-minutes en los jobs de CI y Publish | CI + Publish Docker Hub | ✅ CORREGIDA |
 | **V8** | Trivy referenciado con versión inexistente @0.28.0 | CI | ✅ CORREGIDA |
-| **V9** | Trivy escanea imágenes locales distintas a las publicadas en producción | CI | 🔴 PENDIENTE |
-| **V10** | pre-commit instalado con versión flotante (>=3.5) | CI | 🔴 PENDIENTE |
-| **V11** | pre-commit ejecuta sin caché — reinstalación completa en cada run | CI | 🔴 PENDIENTE |
-| **V12** | Steps de Trivy secuenciales — fallo en primer CVE oculta los demás | CI | 🔴 PENDIENTE |
-| **V13** | ignore-unfixed activado globalmente sin registro de excepciones | CI | 🔴 PENDIENTE |
-| **V14** | Actions de Docker en Publish sin pinning por SHA — riesgo sobre DOCKERHUB_TOKEN | Publish Docker Hub | 🔴 PENDIENTE |
-| **V15** | DOCKERHUB_TOKEN con permisos posiblemente excesivos | Publish Docker Hub | 🔴 PENDIENTE |
-| **V16** | Publish Docker Hub no espera el resultado del CI — imágenes no validadas pueden publicarse | Publish Docker Hub | 🔴 PENDIENTE |
+| **V9** | Trivy escanea imágenes locales distintas a las publicadas en producción | CI | ✅ CORREGIDA |
+| **V10** | pre-commit instalado con versión flotante (>=3.5) | CI | ✅ CORREGIDA |
+| **V11** | pre-commit ejecuta sin caché — reinstalación completa en cada run | CI | ✅ CORREGIDA |
+| **V12** | Steps de Trivy secuenciales — fallo en primer CVE oculta los demás | CI | ✅ CORREGIDA |
+| **V13** | ignore-unfixed activado globalmente sin registro de excepciones | CI | ✅ CORREGIDA |
+| **V14** | Actions de Docker en Publish sin pinning por SHA — riesgo sobre DOCKERHUB_TOKEN | Publish Docker Hub | ✅ CORREGIDA |
+| **V15** | DOCKERHUB_TOKEN con permisos posiblemente excesivos | Publish Docker Hub | ✅ CORREGIDA |
+| **V16** | Publish Docker Hub no espera el resultado del CI — imágenes no validadas pueden publicarse | Publish Docker Hub | ✅ CORREGIDA |
 
 ---
 
@@ -57,7 +57,7 @@ Para cada vulnerabilidad se presenta: descripción técnica detallada (¿Qué es
 ---
 
 ### V1 — Node.js 20 hardcodeado y deprecado en GitHub Actions
-**Workflow:** CI + Publish Docker Hub | **Detectada:** CI #1 — Mar 24, 2026 | 🔴 **PENDIENTE**
+**Workflow:** CI + Publish Docker Hub | **Detectada:** CI #1 — Mar 24, 2026 | ✅ **CORREGIDA**
 
 | Activa por | CIs afectados | Jobs CI | Jobs Publish |
 |---|---|---|---|
@@ -91,7 +91,7 @@ A partir del 2 de junio de 2026 el pipeline tendrá comportamiento impredecible.
 ---
 
 ### V2 — Sin pinning de actions por SHA de commit
-**Workflow:** CI + Publish Docker Hub | **Detectada:** CI #1 (código fuente) | 🔴 **PENDIENTE**
+**Workflow:** CI + Publish Docker Hub | **Detectada:** CI #1 (código fuente) | ✅ **CORREGIDA**
 
 | Visibilidad | Actions CI | Actions Publish | Total expuestas |
 |---|---|---|---|
@@ -129,7 +129,7 @@ Un ataque de supply chain sobre cualquiera de las 11 actions puede comprometer e
 ---
 
 ### V3 — Sin bloque permissions en el workflow CI
-**Workflow:** CI | **Detectada:** CI #1 (código fuente) | 🔴 **PENDIENTE**
+**Workflow:** CI | **Detectada:** CI #1 (código fuente) | ✅ **CORREGIDA**
 
 | Visibilidad | Workflow Publish | Workflow CI | Severidad |
 |---|---|---|---|
@@ -175,7 +175,7 @@ Si el pipeline CI es comprometido, el token `GITHUB_TOKEN` tendrá permisos exce
 ---
 
 ### V4 — VITE_API_BASE_URL hardcodeada incorrecta
-**Workflow:** CI + Publish Docker Hub | **Detectada:** CI #1 / Pub #1 (código fuente) | 🔴 **PENDIENTE**
+**Workflow:** CI + Publish Docker Hub | **Detectada:** CI #1 / Pub #1 (código fuente) | ✅ **CORREGIDA**
 
 | Visibilidad | Builds afectados | Valor incorrecto | Causa raíz |
 |---|---|---|---|
@@ -213,7 +213,7 @@ Las imágenes publicadas en Docker Hub tienen el frontend compilado estáticamen
 ---
 
 ### V5 — pip install sin verificación de integridad por hashes
-**Workflow:** CI | **Detectada:** CI #6 (código fuente) | 🔴 **PENDIENTE**
+**Workflow:** CI | **Detectada:** CI #6 (código fuente) | ✅ **CORREGIDA**
 
 | Visibilidad | Jobs afectados | Severidad | Tipo |
 |---|---|---|---|
@@ -256,7 +256,7 @@ Sin verificación de hashes, un ataque de dependency confusion, un paquete typos
 ---
 
 ### V6 — Build de imágenes Docker en CI sin escaneo de seguridad
-**Workflow:** CI | **Detectada:** CI #7 (código fuente) | 🔴 **PENDIENTE**
+**Workflow:** CI | **Detectada:** CI #7 (código fuente) | ✅ **CORREGIDA**
 
 | Visibilidad | Job afectado | CIs sin escaneo | Severidad |
 |---|---|---|---|
@@ -296,7 +296,7 @@ Entre el CI #7 y el CI #11 (5 commits), las imágenes Docker se construyen en el
 ---
 
 ### V7 — Sin timeout-minutes en los jobs de CI y Publish
-**Workflow:** CI + Publish Docker Hub | **Detectada:** CI #7 (código fuente) | 🔴 **PENDIENTE**
+**Workflow:** CI + Publish Docker Hub | **Detectada:** CI #7 (código fuente) | ✅ **CORREGIDA**
 
 | Visibilidad | Jobs CI | Jobs Publish | Timeout default |
 |---|---|---|---|
@@ -379,7 +379,7 @@ Mientras la versión era inexistente, el escaneo de seguridad de imágenes Docke
 ---
 
 ### V9 — Trivy escanea imágenes locales distintas a las publicadas en producción
-**Workflow:** CI | **Detectada:** CI #12 (código fuente) | 🔴 **PENDIENTE**
+**Workflow:** CI | **Detectada:** CI #12 (código fuente) | ✅ **CORREGIDA**
 
 | Visibilidad | Jobs afectados | Riesgo | Severidad |
 |---|---|---|---|
@@ -423,7 +423,7 @@ Una vulnerabilidad podría estar presente en la imagen publicada pero no detecta
 ---
 
 ### V10 — pre-commit instalado con versión flotante (>=3.5)
-**Workflow:** CI | **Detectada:** CI #12 (código fuente) | 🔴 **PENDIENTE**
+**Workflow:** CI | **Detectada:** CI #12 (código fuente) | ✅ **CORREGIDA**
 
 | Visibilidad | Job afectado | Versión actual | Severidad |
 |---|---|---|---|
@@ -458,7 +458,7 @@ Si una versión nueva de pre-commit introduce un breaking change, el job puede e
 ---
 
 ### V11 — pre-commit ejecuta sin caché — reinstalación completa en cada run
-**Workflow:** CI | **Detectada:** CI #12 (código fuente) | 🔴 **PENDIENTE**
+**Workflow:** CI | **Detectada:** CI #12 (código fuente) | ✅ **CORREGIDA**
 
 | Visibilidad | Job afectado | Impacto | Severidad |
 |---|---|---|---|
@@ -505,7 +505,7 @@ El tiempo de ejecución del job security crece con cada hook adicional. En proye
 ---
 
 ### V12 — Steps de Trivy secuenciales — fallo en primer CVE oculta los demás
-**Workflow:** CI | **Detectada:** CI #12 (código fuente) | 🔴 **PENDIENTE**
+**Workflow:** CI | **Detectada:** CI #12 (código fuente) | ✅ **CORREGIDA**
 
 | Visibilidad | Steps afectados | Problema | Severidad |
 |---|---|---|---|
@@ -565,7 +565,7 @@ Cuando api-gateway tiene CVEs, el equipo no sabe si worker y frontend también l
 ---
 
 ### V13 — ignore-unfixed activado globalmente sin registro de excepciones
-**Workflow:** CI | **Detectada:** CI #14 (código fuente) | 🔴 **PENDIENTE**
+**Workflow:** CI | **Detectada:** CI #14 (código fuente) | ✅ **CORREGIDA**
 
 | Visibilidad | Parámetro | Steps afectados | Severidad |
 |---|---|---|---|
@@ -614,7 +614,7 @@ CVEs sin parche quedan completamente invisibles en el pipeline. El equipo no sab
 ---
 
 ### V14 — Actions de Docker en Publish sin pinning por SHA — riesgo sobre DOCKERHUB_TOKEN
-**Workflow:** Publish Docker Hub | **Detectada:** Pub #1 (código fuente) | 🔴 **PENDIENTE**
+**Workflow:** Publish Docker Hub | **Detectada:** Pub #1 (código fuente) | ✅ **CORREGIDA**
 
 | Visibilidad | Actions afectadas | Secret en riesgo | Severidad |
 |---|---|---|---|
@@ -660,7 +660,7 @@ Un supply chain attack sobre `docker/login-action` permite al atacante exfiltrar
 ---
 
 ### V15 — DOCKERHUB_TOKEN con permisos posiblemente excesivos
-**Workflow:** Publish Docker Hub | **Detectada:** Pub #1 (código fuente) | 🔴 **PENDIENTE**
+**Workflow:** Publish Docker Hub | **Detectada:** Pub #1 (código fuente) | ✅ **CORREGIDA**
 
 | Visibilidad | Secret | Riesgo | Severidad |
 |---|---|---|---|
@@ -701,7 +701,7 @@ Si el `DOCKERHUB_TOKEN` tiene permisos de Read/Write/Delete y es comprometido, u
 ---
 
 ### V16 — Publish Docker Hub no espera el resultado del CI — imágenes no validadas pueden publicarse
-**Workflow:** Publish Docker Hub | **Detectada:** Pub #1 (código fuente) | 🔴 **PENDIENTE**
+**Workflow:** Publish Docker Hub | **Detectada:** Pub #1 (código fuente) | ✅ **CORREGIDA**
 
 | Visibilidad | Trigger | Riesgo | Severidad |
 |---|---|---|---|
