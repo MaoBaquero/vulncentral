@@ -1,118 +1,169 @@
-# Publicación de imágenes en Docker Hub
+# Inicio rápido — solo imágenes Docker Hub
 
-Este documento describe el flujo automático de construcción y publicación de las imágenes propias de VulnCentral en Docker Hub, y cómo usarlas después del despliegue en el registro.
+Esta guía levanta **todo** VulnCentral usando **únicamente** imágenes publicadas en Docker Hub (`maurobaquero/vulncentral-*`) más PostgreSQL y RabbitMQ oficiales. **No** hace falta construir imágenes en local.
 
-## Objetivo
+Para desarrollo con `build` desde el código fuente, usa el [`docker-compose.yml`](../docker-compose.yml) del repositorio y la guía [Inicio rápido](Inicio_Rapido.md).
 
-Publicar tres imágenes bajo el namespace **`maurobaquero`** cuando se integra código en la rama **`main`** o cuando se crea un **tag Git** de versión con prefijo `v` (por ejemplo `v1.0.0`).
+---
 
-## Workflow de GitHub Actions
+## Qué incluye
 
-| Campo | Valor |
-|--------|--------|
-| Archivo | [`.github/workflows/docker-publish.yml`](../.github/workflows/docker-publish.yml) |
-| Nombre del workflow | Publish Docker Hub |
-| Disparadores | `push` a `main`; `push` de tags que coinciden con `v*` |
+| Componente | Origen |
+|------------|--------|
+| API, worker, frontend | Docker Hub (`maurobaquero/vulncentral-api-gateway`, `vulncentral-worker`, `vulncentral-frontend`) |
+| Base de datos y cola | Imágenes oficiales `postgres:16-alpine`, `rabbitmq:3.13-management-alpine` |
+| Fichero Compose | [`docker-compose.hub.yml`](../docker-compose.hub.yml) en la raíz del repo (autocontenido) |
 
-El job usa **Docker Buildx**, **caché tipo `gha`** (GitHub Actions cache) y **`docker/build-push-action`** para construir y subir cada imagen.
+---
 
-## Imágenes publicadas
+## Prerrequisitos
 
-Convención de nombres (fija en el workflow):
+| Requisito | Comprobación |
+|-----------|----------------|
+| **Docker Engine** y **Docker Compose v2** | `docker --version`, `docker compose version` |
+| **RAM** suficiente para varios contenedores (orientativo: 2–4 GiB libres) | — |
+| Puertos libres en el host según tu `.env` (por defecto: **5432** Postgres, **5672**/**15672** RabbitMQ, **8000** API, **8080** frontend) | — |
 
-| Imagen Docker Hub | Origen en el repo |
-|-------------------|-------------------|
-| `maurobaquero/vulncentral-api-gateway` | Contexto raíz, `services/api-gateway/Dockerfile` |
-| `maurobaquero/vulncentral-worker` | Contexto raíz, `services/worker/Dockerfile` |
-| `maurobaquero/vulncentral-frontend` | Contexto `services/frontend`, `Dockerfile` del front |
+---
 
-Plataforma de build en CI: **`linux/amd64`**. Para ARM64 u otras arquitecturas habría que ampliar el workflow (por ejemplo `platforms: linux/amd64,linux/arm64` y emulación QEMU); no está habilitado por defecto.
+## 🎯 **Ultra Fast Review**
+Simplemente sigue en orden los siguientes pasos y podrás realizar la instalación del sistema tipo **NO Verbose**, si requieres información detallada **continua al siguiente literal**.
 
-## Política de tags
-
-| Situación | Tags que se publican (por imagen) |
-|-----------|-------------------------------------|
-| Push a la rama **`main`** | `latest`, `sha-<commit_corto>` |
-| Push de un tag Git **`v*`** (ej. `v1.0.0`) | El nombre exacto del tag (ej. `v1.0.0`) y `sha-<commit_corto>` |
-
-**Importante:** el tag `latest` **solo** se actualiza en pushes a `main`, no al publicar solo un tag de release (salvo que en el futuro se amplíe la política).
-
-## Configuración en GitHub
-
-### Secrets (obligatorios)
-
-En el repositorio: **Settings → Secrets and variables → Actions → Secrets**.
-
-| Secret | Descripción |
-|--------|-------------|
-| `DOCKERHUB_USERNAME` | Usuario de Docker Hub (puede ser `maurobaquero`). |
-| `DOCKERHUB_TOKEN` | Personal Access Token (PAT) de Docker Hub con permiso de **escritura** (Write) sobre repositorios de imágenes; no uses la contraseña de la cuenta. |
-
-Crear el PAT en Docker Hub: **Account settings → Security → New access token**.
-
-### Variables (recomendado para el frontend)
-
-En **Settings → Secrets and variables → Actions → Variables** (pestaña *Variables*):
-
-| Variable | Uso |
-|----------|-----|
-| `VITE_API_BASE_URL` | URL base de la API que el frontend de Vite debe usar **en tiempo de build** (por ejemplo `https://api.ejemplo.com`). Si se deja vacía o no se define, el workflow usa por defecto `http://localhost:8000` (útil como placeholder hasta definir un entorno real). |
-
-Cada valor distinto de `VITE_API_BASE_URL` genera un **bundle distinto**; en la práctica son **imágenes de frontend distintas** para cada URL. Para varios entornos suele publicarse con tags diferentes (por ejemplo asociados a tags Git `v*`) o con pipelines separados.
-
-## Cómo usar las imágenes publicadas
-
-### Descargar
+1. Crear una nueva carpeta (Cualquier nombre), ubíquese dentro de ella a través de una terminal.
+2. Baja en la carpeta recién creada los archivos [`docker-compose.hub.yml`](../docker-compose.hub.yml) y copia también [`.env.example`](../.env.example) como plantilla (desde el mismo repositorio). 
+2. **Corra paso a paso los siguiente comandos:**
 
 ```bash
-docker pull maurobaquero/vulncentral-api-gateway:latest
-docker pull maurobaquero/vulncentral-worker:latest
-docker pull maurobaquero/vulncentral-frontend:latest
+cp .env.example .env
+```
+```bash
+docker compose -f docker-compose.hub.yml up -d
+```
+```bash
+docker compose -f docker-compose.hub.yml exec api-gateway alembic upgrade head
+```
+```bash
+docker compose -f docker-compose.hub.yml exec api-gateway python -m app.scripts.seed
 ```
 
-Sustituye `latest` por `sha-<hash>` o por un tag de versión (`v1.0.0`) según lo que necesites reproducir.
+🔥 **¡Listo, tienes instalado VulnCentral!**
+ 
+3. **Entra a** `http://localhost:8080/login`
+    - **Atención**, si no te deja ingresar, ejecuta aplicativo desde el contenedor imagen "frontend"
 
-### Variables de entorno en runtime
+4. ### 🚀 Para conectarse al aplicativo por primera vez use:
+```
+elmero@admon.com 
+elmero/*-
+```
 
-Las imágenes **no** sustituyen la configuración de `docker-compose.yml`: siguen necesitando las mismas variables en tiempo de ejecución (PostgreSQL, RabbitMQ, JWT, Celery, etc.) que cuando se construyen en local. Consulta el [README principal](../README.md) y el fichero `.env.example` del repositorio.
+## PASOS DE INSTALACIÓN DETALLADOS
 
-Ejemplo mínimo de arranque del API (ilustrativo; ajusta red, secretos y volúmenes a tu entorno):
+### 1. Obtener el Compose y el ejemplo de entorno
+
+- **Opción A:** clona el repositorio y trabaja en la carpeta raíz.
+- **Opción B:** descarga solo [`docker-compose.hub.yml`](../docker-compose.hub.yml) y copia también [`.env.example`](../.env.example) como plantilla (desde el mismo repositorio).
+
+### 2. Crear el archivo `.env`
 
 ```bash
-docker run --rm -p 8000:8000 \
-  -e POSTGRES_HOST=... \
-  -e POSTGRES_USER=... \
-  -e POSTGRES_PASSWORD=... \
-  -e POSTGRES_DB=... \
-  maurobaquero/vulncentral-api-gateway:latest
+cp .env.example .env
 ```
 
-El **worker** Celery y el **frontend** se ejecutan de forma análoga con las variables que ya documenta el proyecto para cada servicio.
+Edita `.env` y **cambia al menos**:
 
-### Compose
+- Contraseñas de **PostgreSQL** (`POSTGRES_PASSWORD`, etc.).
+- **JWT_SECRET** (cadena larga y aleatoria en entornos reales).
+- Credenciales **RabbitMQ** y coherencia de **`CELERY_BROKER_URL`** y **`CELERY_RESULT_BACKEND`** con `RABBITMQ_DEFAULT_USER`, `RABBITMQ_DEFAULT_PASS` y `RABBITMQ_DEFAULT_VHOST` (el host del broker dentro de Compose debe ser **`rabbitmq`**).
+- **`CORS_ORIGINS`**: debe incluir el **origen exacto** del SPA en el navegador (p. ej. `http://localhost:8080` si abres el front en ese puerto).
 
-El repositorio sigue orientado a `docker compose build` para desarrollo. Para producción con imágenes de Hub puedes definir en tu propio override de Compose (fuera del alcance del fichero `docker-compose.prod.yml` versionado en este plan) entradas `image: maurobaquero/vulncentral-...` y los mismos `environment` que el servicio equivalente.
+### 3. Elegir tag de las imágenes de aplicación
 
-## Optimización de contexto de build
+En `.env` puedes definir:
 
-El [`.dockerignore`](../.dockerignore) en la raíz del monorepo excluye, entre otros, `.cursor`, `docs` y `services/frontend` para los builds cuyo contexto es la raíz (**api-gateway** y **worker**), reduciendo el contexto enviado al daemon sin afectar a los `COPY` necesarios en esos Dockerfiles.
+```env
+VULNCENTRAL_TAG=v1.0.0
+```
 
-## Recomendaciones de optimización (Dockerfiles)
+Si no lo defines, el compose usa por defecto **`v1.0.0`**. Otras opciones habituales en Hub: `latest`, `sha-xxxx` (según lo publicado). Las tres imágenes (api-gateway, worker, frontend) deben usar el **mismo** tag para un despliegue coherente.
 
-- **api-gateway** y **worker**: ya usan multi-stage, `python:3.12-slim-bookworm`, venv copiado a la imagen final y usuario no root; no se aplicaron cambios estructurales adicionales.
-- **frontend**: mantiene build con Node 20 Alpine y servido con Nginx; revisar periódicamente versiones base (`node`, `nginx`) por parches de seguridad.
-- **Multi-arquitectura**: si necesitas imágenes nativas en ARM (Apple Silicon en Linux, AWS Graviton, etc.), amplía el workflow con `platforms: linux/amd64,linux/arm64` y `docker/setup-qemu-action` antes de Buildx (aumenta tiempo de build).
+### 4. Arrancar
 
-## Checklist de validación (post-configuración)
+Desde el directorio donde están `docker-compose.hub.yml` y `.env`:
 
-1. **Local:** `docker compose build` (o al menos `docker compose build api-gateway worker frontend`) funciona en tu máquina con el código actual.
-2. **GitHub:** Secrets `DOCKERHUB_USERNAME` y `DOCKERHUB_TOKEN` creados en el repositorio (o a nivel de organización, si aplica).
-3. **Variable opcional:** `VITE_API_BASE_URL` definida si el frontend publicado debe apuntar a una API concreta (no localhost).
-4. **Primera publicación:** hacer `push` a `main` (o crear un tag `v*`) y comprobar en la pestaña **Actions** que el workflow **Publish Docker Hub** termina en verde.
-5. **Docker Hub:** comprobar que existen las tres imágenes y los tags esperados (`latest` y/o `sha-...` y/o `v...`).
+```bash
+docker compose -f docker-compose.hub.yml up -d
+```
 
-Si el workflow falla en el login, revisa que el PAT no haya expirado y que el secret se llame exactamente como espera el YAML.
+La primera vez se harán `pull` de las imágenes; requiere red y puede tardar varios minutos.
 
-## Referencia cruzada
+### 5. Migraciones (obligatorio tras el primer arranque)
 
-La especificación funcional del trabajo está alineada con el prompt interno [`.cursor/prompts/Publicacion_Docker_Hub.md`](../.cursor/prompts/Publicacion_Docker_Hub.md).
+El API **no** aplica migraciones de Alembic al iniciar. Ejecuta:
+
+```bash
+docker compose -f docker-compose.hub.yml exec api-gateway alembic upgrade head
+```
+
+### 6. Datos iniciales (opcional)
+
+Para cargar roles/usuarios de demostración alineados con el proyecto:
+
+```bash
+docker compose -f docker-compose.hub.yml exec api-gateway python -m app.scripts.seed
+```
+
+---
+
+## Acceso
+
+| Servicio | URL típica (valores por defecto del `.env.example`) |
+|----------|-----------------------------------------------------|
+| Frontend (SPA) | `http://localhost:8080` (puerto `FRONTEND_PORT`) |
+| API | `http://localhost:8000` (puerto `API_GATEWAY_PORT`) |
+| RabbitMQ Management | `http://localhost:15672` (si expusiste el puerto) |
+
+Comprueba el API con: `GET http://localhost:8000/health` (ajusta host/puerto según tu `.env`).
+
+---
+
+## ADVERTENCIA: URL del API en el navegador (Vite)
+
+La imagen **`vulncentral-frontend`** se construyó con **Vite**: la variable **`VITE_API_BASE_URL`** se definió en **build-time**. El SPA llamará al API en la URL que lleve **incrustada** esa imagen (en muchos releases, `http://localhost:8000`).
+
+- Si publicas el API en **otro host, HTTPS o puerto**, la misma imagen puede fallar con errores de red o CORS hasta que uses una **imagen de frontend** construida para esa URL o otro mecanismo de despliegue.
+- **`CORS_ORIGINS`** en el API debe listar el origen exacto del SPA (esquema + host + puerto).
+
+Más detalle: [diagnostico-ingesta-trivy-carga.md](diagnostico-ingesta-trivy-carga.md) (incluye «Failed to fetch» y checklist).
+
+---
+
+## Problemas frecuentes y soluciones
+
+| Síntoma | Causa probable | Qué hacer |
+|---------|----------------|-----------|
+| `manifest unknown` o error al hacer pull | Tag `VULNCENTRAL_TAG` no existe en Docker Hub | Comprueba tags publicados; prueba `latest` o un `sha-*` existente. |
+| API healthy pero login o datos fallan | Migraciones no ejecutadas | `docker compose -f docker-compose.hub.yml exec api-gateway alembic upgrade head` |
+| «Failed to fetch» / CORS en el navegador | Origen del SPA no está en `CORS_ORIGINS` o URL del API no coincide con la del bundle del front | Ajusta `.env`, reinicia `api-gateway`; revisa sección Vite arriba y [diagnostico-ingesta-trivy-carga.md](diagnostico-ingesta-trivy-carga.md). |
+| Worker no procesa informes Trivy (202 pero sin datos en BD) | Worker caído, cola o volumen `reports_data` | [diagnostico-ingesta-trivy-carga.md](diagnostico-ingesta-trivy-carga.md): `docker compose ps`, logs del worker, volumen compartido. |
+| Celery no conecta | Usuario/clave/vhost en `CELERY_BROKER_URL` no coinciden con `RABBITMQ_*` | Revisa `.env` y reinicia `api-gateway` y `worker`. |
+
+---
+
+## Detener y borrar datos
+
+```bash
+docker compose -f docker-compose.hub.yml down -v
+```
+
+**`-v`** elimina volúmenes (PostgreSQL, RabbitMQ, informes Trivy en `reports_data`). Úsalo solo si quieres un reset completo.
+
+---
+
+## Validar el fichero Compose
+
+```bash
+docker compose -f docker-compose.hub.yml config
+```
+
+Debe mostrar la configuración interpolada sin errores.
