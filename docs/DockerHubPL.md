@@ -30,8 +30,8 @@ Para desarrollo con `build` desde el código fuente, usa el [`docker-compose.yml
 Simplemente sigue en orden los siguientes pasos y podrás realizar la instalación del sistema tipo **NO Verbose**, si requieres información detallada **continua al siguiente literal**.
 
 1. Crear una nueva carpeta (Cualquier nombre), ubíquese dentro de ella a través de una terminal.
-2. Baja en la carpeta recién creada los archivos [`docker-compose.hub.yml`](../docker-compose.hub.yml) y copia también [`.env.example`](../.env.example) como plantilla (desde el mismo repositorio). 
-2. **Corra paso a paso los siguiente comandos:**
+2. Copiar en esa carpeta [`docker-compose.hub.yml`](../docker-compose.hub.yml) y [`.env.example`](../.env.example) como plantilla (desde el mismo repositorio).
+3. Ejecutar **en orden** los siguientes comandos:
 
 ```bash
 cp .env.example .env
@@ -47,11 +47,11 @@ docker compose -f docker-compose.hub.yml exec api-gateway python -m app.scripts.
 ```
 
 🔥 **¡Listo, tienes instalado VulnCentral!**
- 
-3. **Entra a** `http://localhost:8080/login`
-    - **Atención**, si no te deja ingresar, ejecuta aplicativo desde el contenedor imagen "frontend"
 
-4. ### 🚀 Para conectarse al aplicativo por primera vez use:
+4. Entrar a **`http://localhost:8080/login`**. Si ves **«Failed to fetch»** o no hay conexión con el API, comprueba **`VITE_API_BASE_URL`** y **`CORS_ORIGINS`** en `.env`, reinicia el frontend con `docker compose -f docker-compose.hub.yml up -d frontend` y revisa la sección **ADVERTENCIA: URL del API en el navegador** más abajo (la URL del API para el navegador la toma el contenedor desde `.env`; la imagen Hub debe incluir `/config.json` generado al arrancar).
+
+### Primera conexión al aplicativo
+
 ```
 elmero@admon.com 
 elmero/*-
@@ -127,11 +127,12 @@ Comprueba el API con: `GET http://localhost:8000/health` (ajusta host/puerto seg
 
 ---
 
-## ADVERTENCIA: URL del API en el navegador (Vite)
+## ADVERTENCIA: URL del API en el navegador
 
-La imagen **`vulncentral-frontend`** se construyó con **Vite**: la variable **`VITE_API_BASE_URL`** se definió en **build-time**. El SPA llamará al API en la URL que lleve **incrustada** esa imagen (en muchos releases, `http://localhost:8000`).
+En **`docker-compose.hub.yml`**, el servicio **`frontend`** recibe **`VC_API_BASE_URL`** (por defecto el mismo valor que **`VITE_API_BASE_URL`** en tu `.env`). Al arrancar el contenedor se genera **`/config.json`** con la URL pública del API; el SPA la usa en **runtime**, así que puedes cambiar host/puerto **sin reconstruir la imagen** (reinicia solo el contenedor `frontend` tras editar `.env`).
 
-- Si publicas el API en **otro host, HTTPS o puerto**, la misma imagen puede fallar con errores de red o CORS hasta que uses una **imagen de frontend** construida para esa URL o otro mecanismo de despliegue.
+En **`docker-compose.yml`** (build local del front), **`VITE_API_BASE_URL`** sigue siendo el fallback en desarrollo y el valor por defecto del bundle si no hubiera `config.json`.
+
 - **`CORS_ORIGINS`** en el API debe listar el origen exacto del SPA (esquema + host + puerto).
 
 Más detalle: [diagnostico-ingesta-trivy-carga.md](diagnostico-ingesta-trivy-carga.md) (incluye «Failed to fetch» y checklist).
@@ -144,7 +145,7 @@ Más detalle: [diagnostico-ingesta-trivy-carga.md](diagnostico-ingesta-trivy-car
 |---------|----------------|-----------|
 | `manifest unknown` o error al hacer pull | Tag `VULNCENTRAL_TAG` no existe en Docker Hub | Comprueba tags publicados; prueba `latest` o un `sha-*` existente. |
 | API healthy pero login o datos fallan | Migraciones no ejecutadas | `docker compose -f docker-compose.hub.yml exec api-gateway alembic upgrade head` |
-| «Failed to fetch» / CORS en el navegador | Origen del SPA no está en `CORS_ORIGINS` o URL del API no coincide con la del bundle del front | Ajusta `.env`, reinicia `api-gateway`; revisa sección Vite arriba y [diagnostico-ingesta-trivy-carga.md](diagnostico-ingesta-trivy-carga.md). |
+| «Failed to fetch» / CORS en el navegador | Origen del SPA no está en `CORS_ORIGINS`, `VITE_API_BASE_URL` / `VC_API_BASE_URL` incorrectos o API caído | Ajusta `.env`, reinicia `api-gateway` y `frontend`; revisa la sección anterior y [diagnostico-ingesta-trivy-carga.md](diagnostico-ingesta-trivy-carga.md). |
 | Worker no procesa informes Trivy (202 pero sin datos en BD) | Worker caído, cola o volumen `reports_data` | [diagnostico-ingesta-trivy-carga.md](diagnostico-ingesta-trivy-carga.md): `docker compose ps`, logs del worker, volumen compartido. |
 | Celery no conecta | Usuario/clave/vhost en `CELERY_BROKER_URL` no coinciden con `RABBITMQ_*` | Revisa `.env` y reinicia `api-gateway` y `worker`. |
 

@@ -1,6 +1,6 @@
 # Publica imágenes en Docker Hub (namespace maurobaquero/vulncentral-*).
 # Requiere secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN.
-# Opcional: variable de repositorio VITE_API_BASE_URL (build del frontend); ver docs/DockerHubPL.md
+# Opcional: variable de repositorio VITE_API_BASE_URL (fallback del bundle Vite); runtime del SPA usa VC_API_BASE_URL en compose → ver docs/DockerHubPL.md
 name: Publish Docker Hub
 
 on:

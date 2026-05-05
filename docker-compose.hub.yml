@@ -135,13 +135,14 @@ services:
         limits:
           memory: 384M
 
-  # ADVERTENCIA — VITE_API_BASE_URL es build-time: la URL del API quedó fijada al construir la imagen
-  # publicada en Docker Hub. Si el navegador debe usar otro host/puerto para el API, necesitas una
-  # imagen de frontend construida con esa URL (u otro mecanismo); este compose no puede cambiarla en runtime.
+  # Frontend: VC_API_BASE_URL (→ /config.json en runtime) define la URL del API para el navegador.
+  # Por defecto se toma VITE_API_BASE_URL del .env; tras cambiarla: docker compose up -d frontend.
   frontend:
     image: maurobaquero/vulncentral-frontend:${VULNCENTRAL_TAG:-v1.0.0}
     container_name: vulncentral-frontend
     restart: unless-stopped
+    environment:
+      VC_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
     ports:
       - "${FRONTEND_PORT:-8080}:8080"
     depends_on:

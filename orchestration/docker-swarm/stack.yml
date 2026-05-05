@@ -86,6 +86,8 @@ services:
 
   frontend:
     image: vulncentral/frontend:latest
+    environment:
+      VC_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
     networks:
       - vulncentral_net
     deploy:

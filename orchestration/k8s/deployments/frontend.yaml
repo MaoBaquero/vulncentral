@@ -19,6 +19,10 @@ spec:
         - name: frontend
           image: vulncentral/frontend:latest
           imagePullPolicy: IfNotPresent
+          env:
+            # URL del API tal como la ve el navegador (no usar solo DNS interno del clúster).
+            - name: VC_API_BASE_URL
+              value: "http://localhost:8000"
           ports:
             - containerPort: 8080
           readinessProbe:

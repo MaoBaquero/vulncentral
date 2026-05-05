@@ -1,4 +1,4 @@
-const base = () => (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+import { getApiBaseUrl } from "./apiBaseUrl.js";
 
 /**
  * @param {string} path
@@ -16,7 +16,8 @@ export async function request(path, opts = {}) {
     headers["Content-Type"] = "application/json";
     fetchBody = JSON.stringify(body);
   }
-  const url = `${base()}${path.startsWith("/") ? path : `/${path}`}`;
+  const base = await getApiBaseUrl();
+  const url = `${base}${path.startsWith("/") ? path : `/${path}`}`;
   let res;
   try {
     res = await fetch(url, { method, headers, body: fetchBody });
@@ -26,7 +27,7 @@ export async function request(path, opts = {}) {
     const isNetwork =
       msg === "Failed to fetch" || name === "TypeError" || name === "AbortError";
     const hint =
-      "Comprueba que el API esté en marcha, VITE_API_BASE_URL (origen del navegador), CORS_ORIGINS y la consola/red del navegador (F12). Ver docs/diagnostico-ingesta-trivy-carga.md.";
+      "Comprueba que el API esté en marcha, VITE_API_BASE_URL / VC_API_BASE_URL en el contenedor frontend (config.json), CORS_ORIGINS y la consola/red del navegador (F12). Ver docs/diagnostico-ingesta-trivy-carga.md.";
     const out = isNetwork ? `Failed to fetch. ${hint}` : msg || "Error de red";
     const err = new Error(out);
     err.code = "network_error";
