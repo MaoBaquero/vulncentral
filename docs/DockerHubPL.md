@@ -36,6 +36,8 @@ Simplemente sigue en orden los siguientes pasos y podr√°s realizar la instalaci√
 ```bash
 cp .env.example .env
 ```
+*Revise que el nombre del archivo bajado tenga el punto (.) al inicio de lo contrario omita el punto inicial (env.example) en el comando*
+
 ```bash
 docker compose -f docker-compose.hub.yml up -d
 ```

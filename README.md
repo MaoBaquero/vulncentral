@@ -218,6 +218,14 @@ Este documento cubre el modelado de amenazas de los **seis componentes principal
 
 ---
 
+
+### Video
+
+→ **[Video Explicativo VulnCentral](https://www.youtube.com/watch?v=yI1bq3Rw5cM)**
+
+---
+
+
 ## Autores
 
 | Nombre | Institución |
