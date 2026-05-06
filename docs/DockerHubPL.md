@@ -48,7 +48,11 @@ docker compose -f docker-compose.hub.yml exec api-gateway python -m app.scripts.
 
 🔥 **¡Listo, tienes instalado VulnCentral!**
 
-4. Entrar a **`http://localhost:8080/login`**. Si ves **«Failed to fetch»** o no hay conexión con el API, comprueba **`VITE_API_BASE_URL`** y **`CORS_ORIGINS`** en `.env`, reinicia el frontend con `docker compose -f docker-compose.hub.yml up -d frontend` y revisa la sección **ADVERTENCIA: URL del API en el navegador** más abajo (la URL del API para el navegador la toma el contenedor desde `.env`; la imagen Hub debe incluir `/config.json` generado al arrancar).
+4. Entrar a **`http://localhost:8080/login`**. 
+
+```
+🧨 Si ves **«Failed to fetch»** o no hay conexión con el API, comprueba **`VITE_API_BASE_URL`** y **`CORS_ORIGINS`** en `.env`, reinicia el frontend con `docker compose -f docker-compose.hub.yml up -d frontend` y revisa la sección **ADVERTENCIA: URL del API en el navegador** más abajo (la URL del API para el navegador la toma el contenedor desde `.env`; la imagen Hub debe incluir `/config.json` generado al arrancar).
+```
 
 ### Primera conexión al aplicativo
 
